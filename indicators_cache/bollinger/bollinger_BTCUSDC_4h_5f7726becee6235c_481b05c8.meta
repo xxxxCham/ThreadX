@@ -1,0 +1,21 @@
+{
+  "cache_key": "bollinger_BTCUSDC_4h_5f7726becee6235c_481b05c8",
+  "indicator_type": "bollinger",
+  "params": {
+    "period": 25,
+    "std": 2.2
+  },
+  "symbol": "BTCUSDC",
+  "timeframe": "4h",
+  "created_at": 1759527083.4282727,
+  "data_shape": [
+    10081,
+    3
+  ],
+  "columns": [
+    "result_0",
+    "result_1",
+    "result_2"
+  ],
+  "checksum": "f0f6a862b371f2b45d6f3ebb663b71db"
+}

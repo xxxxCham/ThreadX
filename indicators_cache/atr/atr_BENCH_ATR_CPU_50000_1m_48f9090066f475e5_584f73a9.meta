@@ -1,0 +1,19 @@
+{
+  "cache_key": "atr_BENCH_ATR_CPU_50000_1m_48f9090066f475e5_584f73a9",
+  "indicator_type": "atr",
+  "params": {
+    "period": 28,
+    "method": "ema"
+  },
+  "symbol": "BENCH_ATR_CPU_50000",
+  "timeframe": "1m",
+  "created_at": 1759519801.9844131,
+  "data_shape": [
+    50000,
+    1
+  ],
+  "columns": [
+    "result_0"
+  ],
+  "checksum": "f94eba59c03db709e0894fc5c485b23c"
+}

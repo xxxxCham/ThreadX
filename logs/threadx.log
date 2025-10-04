@@ -1,0 +1,5 @@
+2025-10-01 04:27:05 - threadx.config.loaders - INFO - _find_config_file:77 - Configuration auto-détectée: D:\ThreadX\paths.toml
+2025-10-01 04:27:05 - threadx.config.loaders - INFO - _load_config:91 - Configuration chargée: 11 sections
+2025-10-01 04:27:05 - threadx.config.loaders - WARNING - get_section:98 - Section [indicators] manquante, retour dict vide
+2025-10-01 04:27:05 - threadx.config.loaders - WARNING - get_section:98 - Section [backtest] manquante, retour dict vide
+2025-10-01 04:27:05 - threadx.config.loaders - WARNING - get_section:98 - Section [ui] manquante, retour dict vide

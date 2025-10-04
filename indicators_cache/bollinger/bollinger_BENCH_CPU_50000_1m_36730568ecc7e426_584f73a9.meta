@@ -1,0 +1,21 @@
+{
+  "cache_key": "bollinger_BENCH_CPU_50000_1m_36730568ecc7e426_584f73a9",
+  "indicator_type": "bollinger",
+  "params": {
+    "period": 20,
+    "std": 2.0
+  },
+  "symbol": "BENCH_CPU_50000",
+  "timeframe": "1m",
+  "created_at": 1759519800.1814797,
+  "data_shape": [
+    50000,
+    3
+  ],
+  "columns": [
+    "result_0",
+    "result_1",
+    "result_2"
+  ],
+  "checksum": "8f2321a689c43629cf7be85bb3b418bc"
+}

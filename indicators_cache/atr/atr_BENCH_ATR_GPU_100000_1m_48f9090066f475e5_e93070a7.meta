@@ -1,0 +1,19 @@
+{
+  "cache_key": "atr_BENCH_ATR_GPU_100000_1m_48f9090066f475e5_e93070a7",
+  "indicator_type": "atr",
+  "params": {
+    "period": 28,
+    "method": "ema"
+  },
+  "symbol": "BENCH_ATR_GPU_100000",
+  "timeframe": "1m",
+  "created_at": 1759519802.1599445,
+  "data_shape": [
+    100000,
+    1
+  ],
+  "columns": [
+    "result_0"
+  ],
+  "checksum": "7f321f0d3eb32b502d3aaa875ddba87d"
+}

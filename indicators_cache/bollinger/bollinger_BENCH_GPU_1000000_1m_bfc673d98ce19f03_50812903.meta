@@ -1,0 +1,21 @@
+{
+  "cache_key": "bollinger_BENCH_GPU_1000000_1m_bfc673d98ce19f03_50812903",
+  "indicator_type": "bollinger",
+  "params": {
+    "period": 50,
+    "std": 1.5
+  },
+  "symbol": "BENCH_GPU_1000000",
+  "timeframe": "1m",
+  "created_at": 1759519801.2842722,
+  "data_shape": [
+    1000000,
+    3
+  ],
+  "columns": [
+    "result_0",
+    "result_1",
+    "result_2"
+  ],
+  "checksum": "43cae1fbe713e9864949c5a1c220b7e3"
+}

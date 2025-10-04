@@ -1,0 +1,19 @@
+{
+  "cache_key": "atr_BTCUSDC_4h_127f2014af3fb669_481b05c8",
+  "indicator_type": "atr",
+  "params": {
+    "period": 24,
+    "method": "ema"
+  },
+  "symbol": "BTCUSDC",
+  "timeframe": "4h",
+  "created_at": 1759527117.7924724,
+  "data_shape": [
+    10081,
+    1
+  ],
+  "columns": [
+    "result_0"
+  ],
+  "checksum": "a1b213c7569f527ec1f030c50b18b891"
+}
