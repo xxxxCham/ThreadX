@@ -19,6 +19,7 @@ import time
 import functools
 import logging
 import contextlib
+from types import SimpleNamespace
 from typing import Any, Callable, Dict, Optional, Generator
 import threading
 import gc
@@ -111,6 +112,21 @@ class Timer:
 
         return wrapper
 
+
+@contextlib.contextmanager
+def performance_context(name: str, task_count: int = 0, unit_of_work: str = "task"):
+    metrics = SimpleNamespace(
+        elapsed_sec=0.0,
+        tasks_completed=task_count,
+        tasks_per_min=0.0,
+        function_name=name,
+        unit_of_work=unit_of_work,
+    )
+    with Timer() as timer:
+        yield metrics
+    metrics.elapsed_sec = timer.last_elapsed
+    if metrics.elapsed_sec > 0:
+        metrics.tasks_per_min = (task_count / metrics.elapsed_sec) * 60.0
 
 def measure_throughput(name: Optional[str] = None):
     """

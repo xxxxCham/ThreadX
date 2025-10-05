@@ -1,27 +1,21 @@
-"""
-ThreadX Configuration Package - Phase 1
-Configuration and paths management for ThreadX framework.
-"""
-
-from .settings import (
-    Settings,
+"""ThreadX configuration package."""
+from .settings import Settings
+from .errors import ConfigurationError, PathValidationError
+from .loaders import (
     TOMLConfigLoader,
-    ConfigurationError,
-    PathValidationError,
+    load_config_dict,
     load_settings,
     get_settings,
-    print_config
+    print_config,
 )
-
-__version__ = "1.0.0"
-__author__ = "ThreadX Team"
 
 __all__ = [
     "Settings",
-    "TOMLConfigLoader",
-    "ConfigurationError", 
+    "ConfigurationError",
     "PathValidationError",
+    "TOMLConfigLoader",
+    "load_config_dict",
     "load_settings",
     "get_settings",
-    "print_config"
+    "print_config",
 ]

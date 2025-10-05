@@ -34,9 +34,9 @@ except ImportError:
 
 # Import ThreadX Settings - fallback if not available
 try:
-    from threadx.config.settings import load_settings
+    from threadx.config import load_settings
     SETTINGS_AVAILABLE = True
-except ImportError:
+except Exception:  # pragma: no cover - optional dependency during tests
     SETTINGS_AVAILABLE = False
 
 
