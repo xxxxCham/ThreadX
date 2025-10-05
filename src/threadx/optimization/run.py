@@ -222,6 +222,19 @@ def main() -> None:
     config_path = Path(args.config).resolve()
 
     try:
+        # Chargement et exécution
+        config = load_config_dict(args.config)
+        logger.info(f"Configuration chargée: {args.config}")
+        run_sweep(config, dry_run=args.dry_run)
+
+        if not args.dry_run:
+            logger.info("✅ Sweep terminé avec succès")
+
+    except ConfigurationError as e:
+        logger.error(f"❌ Erreur configuration: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"❌ Erreur: {e}")
         config = load_config_dict(config_path)
         run_sweep(config, str(config_path), dry_run=args.dry_run)
         if not args.dry_run:
