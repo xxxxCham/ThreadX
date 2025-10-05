@@ -1,7 +1,7 @@
 """
 ThreadX Configuration Module - Phase 1
-Settings and configuration management with TOML + API authentication.
-Supports environment variables for secure API credentials.
+Settings and configuration management with TOML-only approach.
+No environment variables used - pure TOML configuration.
 """
 
 import os
@@ -12,21 +12,26 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 import toml
 
-# Import du module d'authentification
-try:
-    from .auth import AuthManager, AuthConfig
-    AUTH_AVAILABLE = True
-except ImportError:
-    AUTH_AVAILABLE = False
-    AuthManager = None
-    AuthConfig = None
-
 
 @dataclass(frozen=True)
-class Settings:
+    # Override config file if specified
+    if args and args.config:
+        config_file = args.config
+    
+    # Prepare CLI overrides
+    cli_overrides = {}
+    if args:
+        if args.data_root:
+            cli_overrides["data_root"] = args.data_root
+        if args.log_level:
+            cli_overrides["log_level"] = args.log_level
+        if args.enable_gpu:
+            cli_overrides["gpu_enabled"] = True
+        if args.disable_gpu:
+            cli_overrides["gpu_enabled"] = False:
     """
     Centralized settings dataclass for ThreadX.
-    Configuration loaded from TOML with API authentication support via environment variables.
+    All configuration loaded from TOML, no environment variables.
     """
     
     # Paths Configuration
@@ -93,21 +98,6 @@ class Settings:
     CACHE_TTL_SECONDS: int = 3600
     CACHE_COMPRESSION: bool = True
     CACHE_STRATEGY: str = "LRU"
-    
-    # API Authentication Configuration
-    API_AUTH_ENABLED: bool = True
-    API_FALLBACK_TO_PUBLIC: bool = True
-    API_VALIDATE_ON_STARTUP: bool = False
-    API_TIMEOUT_SECONDS: int = 30
-    API_MAX_RETRIES: int = 3
-    API_LOG_AUTH_ATTEMPTS: bool = True
-    API_MASK_CREDENTIALS: bool = True
-    
-    # Supported APIs
-    BINANCE_ENABLED: bool = True
-    COINGECKO_ENABLED: bool = True
-    ALPHA_VANTAGE_ENABLED: bool = False
-    POLYGON_ENABLED: bool = False
 
 
 class ConfigurationError(Exception):

@@ -51,10 +51,14 @@
 		"python.formatting.blackArgs": [
 			"--line-length=88"
 		],
-		"python.analysis.extraPaths": ["./src"],
+		"python.analysis.extraPaths": [
+			"./src"
+		],
 		"python.analysis.typeCheckingMode": "basic",
 		"python.analysis.autoImportCompletions": true,
-		"python.analysis.include": ["src/**"],
+		"python.analysis.include": [
+			"src/**"
+		],
 		"python.analysis.exclude": [
 			"**/node_modules",
 			"**/__pycache__",
@@ -96,7 +100,9 @@
 		"workbench.iconTheme": "vs-seti",
 		"explorer.confirmDelete": false,
 		"explorer.confirmDragAndDrop": false,
-		"problems.decorations.enabled": true
+		"problems.decorations.enabled": true,
+		"chat.agentSessionsViewLocation": "view",
+		"powershell.cwd": "ThreadX - Main Project"
 	},
 	"tasks": {
 		"version": "2.0.0",
@@ -105,7 +111,13 @@
 				"label": "Install ThreadX",
 				"type": "shell",
 				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
-				"args": ["-m", "pip", "install", "-e", "."],
+				"args": [
+					"-m",
+					"pip",
+					"install",
+					"-e",
+					"."
+				],
 				"group": "build",
 				"presentation": {
 					"echo": true,
@@ -119,7 +131,12 @@
 				"label": "Run Tests",
 				"type": "shell",
 				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
-				"args": ["-m", "pytest", "tests", "-v"],
+				"args": [
+					"-m",
+					"pytest",
+					"tests",
+					"-v"
+				],
 				"group": "test",
 				"presentation": {
 					"echo": true,
@@ -133,7 +150,9 @@
 				"label": "Run Smoke Tests",
 				"type": "shell",
 				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
-				"args": ["smoke_tests.py"],
+				"args": [
+					"smoke_tests.py"
+				],
 				"group": "test",
 				"presentation": {
 					"echo": true,
@@ -147,7 +166,10 @@
 				"label": "Run Benchmarks - Indicators",
 				"type": "shell",
 				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
-				"args": ["-m", "threadx.benchmarks.run_indicators"],
+				"args": [
+					"-m",
+					"threadx.benchmarks.run_indicators"
+				],
 				"group": "build",
 				"presentation": {
 					"echo": true,
@@ -161,7 +183,12 @@
 				"label": "Run Benchmarks - Backtests",
 				"type": "shell",
 				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
-				"args": ["-m", "threadx.benchmarks.run_backtests", "--configs", "configs\\sweeps\\plan.toml"],
+				"args": [
+					"-m",
+					"threadx.benchmarks.run_backtests",
+					"--configs",
+					"configs\\sweeps\\plan.toml"
+				],
 				"group": "build",
 				"presentation": {
 					"echo": true,
@@ -175,7 +202,12 @@
 				"label": "Optimization Grid Sweep",
 				"type": "shell",
 				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
-				"args": ["-m", "threadx.optimization.run", "--config", "configs\\sweeps\\bb_atr_grid.toml"],
+				"args": [
+					"-m",
+					"threadx.optimization.run",
+					"--config",
+					"configs\\sweeps\\bb_atr_grid.toml"
+				],
 				"group": "build",
 				"presentation": {
 					"echo": true,
@@ -189,7 +221,12 @@
 				"label": "Optimization Monte Carlo",
 				"type": "shell",
 				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
-				"args": ["-m", "threadx.optimization.run", "--config", "configs\\sweeps\\bb_atr_montecarlo.toml"],
+				"args": [
+					"-m",
+					"threadx.optimization.run",
+					"--config",
+					"configs\\sweeps\\bb_atr_montecarlo.toml"
+				],
 				"group": "build",
 				"presentation": {
 					"echo": true,
@@ -203,7 +240,14 @@
 				"label": "Clean Cache",
 				"type": "shell",
 				"command": "Remove-Item",
-				"args": ["-Recurse", "-Force", "**/__pycache__", "**/*.pyc", "**/.pytest_cache", "**/.mypy_cache"],
+				"args": [
+					"-Recurse",
+					"-Force",
+					"**/__pycache__",
+					"**/*.pyc",
+					"**/.pytest_cache",
+					"**/.mypy_cache"
+				],
 				"options": {
 					"shell": {
 						"executable": "powershell.exe"
@@ -221,7 +265,12 @@
 				"label": "Start Streamlit App",
 				"type": "shell",
 				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
-				"args": ["-m", "streamlit", "run", "apps/streamlit/app.py"],
+				"args": [
+					"-m",
+					"streamlit",
+					"run",
+					"apps/streamlit/app.py"
+				],
 				"group": "build",
 				"presentation": {
 					"echo": true,
@@ -236,7 +285,9 @@
 				"label": "Start TkInter App",
 				"type": "shell",
 				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
-				"args": ["apps/tkinter/run_tkinter.py"],
+				"args": [
+					"apps/tkinter/run_tkinter.py"
+				],
 				"group": "build",
 				"presentation": {
 					"echo": true,
@@ -256,7 +307,11 @@
 				"type": "debugpy",
 				"request": "launch",
 				"module": "pytest",
-				"args": ["tests", "-v", "-s"],
+				"args": [
+					"tests",
+					"-v",
+					"-s"
+				],
 				"console": "integratedTerminal",
 				"cwd": "${workspaceFolder}",
 				"python": "${workspaceFolder}/.venv/Scripts/python.exe"
@@ -275,7 +330,11 @@
 				"type": "debugpy",
 				"request": "launch",
 				"module": "threadx.optimization.run",
-				"args": ["--config", "configs/sweeps/bb_atr_grid.toml", "--dry-run"],
+				"args": [
+					"--config",
+					"configs/sweeps/bb_atr_grid.toml",
+					"--dry-run"
+				],
 				"console": "integratedTerminal",
 				"cwd": "${workspaceFolder}",
 				"python": "${workspaceFolder}/.venv/Scripts/python.exe"
@@ -294,7 +353,10 @@
 				"type": "debugpy",
 				"request": "launch",
 				"module": "streamlit",
-				"args": ["run", "apps/streamlit/app.py"],
+				"args": [
+					"run",
+					"apps/streamlit/app.py"
+				],
 				"console": "integratedTerminal",
 				"cwd": "${workspaceFolder}",
 				"python": "${workspaceFolder}/.venv/Scripts/python.exe"

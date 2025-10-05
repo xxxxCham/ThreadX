@@ -15,3 +15,8 @@ venv/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Profils de performance GPU
+artifacts/profiles/*.json
+artifacts/profiles/*.bak*
+artifacts/benchmarks/

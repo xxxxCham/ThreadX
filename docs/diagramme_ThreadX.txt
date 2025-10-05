@@ -1,0 +1,19 @@
+[Configs Grid/MC]
+       |
+       v
+[UnifiedOptimizationEngine] -- seeds --> [Deterministic Runner]
+       |                                   |
+       |                                   v
+       |                        [IndicatorBank.ensure/batch]
+       |                                   |
+       |                 +---- cache TTL + checksums ----+
+       |                 |                               |
+       v                 v                               |
+[MultiGPUManager] --> split --> compute (xp) --> sync --> merge (deterministic)
+       |                                                   |
+       +-----------------------------> [Backtest Engine] <-+
+                                        |  |  |  |
+                                        |  |  |  +-> hooks timing/memory
+                                        |  |  +----> xp device-agnostic
+                                        |  +-------> perf metrics
+                                        +----------> RunResult
