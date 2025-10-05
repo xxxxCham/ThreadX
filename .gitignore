@@ -20,3 +20,13 @@ Thumbs.db
 artifacts/profiles/*.json
 artifacts/profiles/*.bak*
 artifacts/benchmarks/
+
+# Ignorer métadonnées Python
+**/egg-info/
+
+# Ignorer caches de tests et de type-checker
+.pytest_cache/
+.mypy_cache/
+
+# Ignorer dossier d'artefacts complet
+artifacts/
