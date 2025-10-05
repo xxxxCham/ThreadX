@@ -22,6 +22,9 @@ artifacts/profiles/*.json
 artifacts/profiles/*.bak*
 artifacts/benchmarks/
 
+# Ignorer fichiers zip volumineux
+*.zip
+
 # Ignorer métadonnées Python
 **/egg-info/
 
@@ -31,3 +34,6 @@ artifacts/benchmarks/
 
 # Ignorer dossier d'artefacts complet
 artifacts/
+
+# Setup project
+bash scripts/codex_setup.sh
