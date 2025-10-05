@@ -14,14 +14,9 @@ Usage:
 import argparse
 import sys
 import time
-from pathlib import Path
 from typing import Dict, Any
 
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib
-
+from threadx.config import ConfigurationError, load_config_dict
 from threadx.indicators.bank import IndicatorBank
 from threadx.optimization.engine import SweepRunner
 from threadx.optimization.scenarios import ScenarioSpec, validate_scenario_spec
@@ -30,21 +25,6 @@ from threadx.utils.log import get_logger
 from threadx.utils.determinism import set_global_seed
 
 logger = get_logger(__name__)
-
-
-def load_config(config_path: str) -> Dict[str, Any]:
-    """Charge la configuration TOML."""
-    config_file = Path(config_path)
-    
-    if not config_file.exists():
-        raise FileNotFoundError(f"Fichier de configuration non trouvé: {config_path}")
-    
-    with config_file.open('rb') as f:
-        config = tomllib.load(f)
-    
-    logger.info(f"Configuration chargée: {config_path}")
-    return config
-
 
 def validate_config(config: Dict[str, Any]) -> ScenarioSpec:
     """Valide et convertit la configuration en ScenarioSpec."""
@@ -204,12 +184,16 @@ Exemples:
     
     try:
         # Chargement et exécution
-        config = load_config(args.config)
+        config = load_config_dict(args.config)
+        logger.info(f"Configuration chargée: {args.config}")
         run_sweep(config, dry_run=args.dry_run)
-        
+
         if not args.dry_run:
             logger.info("✅ Sweep terminé avec succès")
-    
+
+    except ConfigurationError as e:
+        logger.error(f"❌ Erreur configuration: {e}")
+        sys.exit(1)
     except Exception as e:
         logger.error(f"❌ Erreur: {e}")
         sys.exit(1)

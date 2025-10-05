@@ -14,7 +14,6 @@ Exécution:
 
 import argparse
 import os
-import toml
 import json
 from pathlib import Path
 import pandas as pd
@@ -35,7 +34,8 @@ from benchmarks.utils import (
     hash_series,
     env_snapshot,
 )
-from threadx.utils.xp import CUPY_AVAILABLE, get_xp
+from threadx.config import ConfigurationError, load_config_dict
+from threadx.utils.xp import CUPY_AVAILABLE
 from threadx.utils.determinism import set_global_seed
 from threadx.backtest import create_engine
 from threadx.indicators import get_gpu_accelerated_bank
@@ -49,11 +49,26 @@ DEFAULT_CONFIG = ROOT_DIR / "configs" / "sweeps" / "plan.toml"
 
 def load_config(config_path: str) -> dict:
     """Charge la configuration de benchmark à partir d'un fichier TOML."""
+
     try:
-        return toml.load(config_path)
-    except Exception as e:
-        logger.error(f"❌ Erreur lors du chargement de la configuration: {e}")
+        config = load_config_dict(config_path)
+    except ConfigurationError as exc:
+        logger.error(f"❌ Erreur lors du chargement de la configuration: {exc}")
         raise
+    except Exception as exc:
+        logger.error(f"❌ Erreur inattendue lors du chargement de la configuration: {exc}")
+        raise
+
+    if not isinstance(config, dict):
+        message = (
+            f"❌ Configuration invalide ({config_path}) - contenu inattendu de type "
+            f"{type(config).__name__}"
+        )
+        logger.error(message)
+        raise ConfigurationError(message)
+
+    logger.info(f"Configuration chargée: {config_path}")
+    return config
 
 
 def run_backtest_benchmark(config_path: str, output_dir: str = None):

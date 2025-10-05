@@ -14,21 +14,7 @@ import toml
 
 
 @dataclass(frozen=True)
-    # Override config file if specified
-    if args and args.config:
-        config_file = args.config
-    
-    # Prepare CLI overrides
-    cli_overrides = {}
-    if args:
-        if args.data_root:
-            cli_overrides["data_root"] = args.data_root
-        if args.log_level:
-            cli_overrides["log_level"] = args.log_level
-        if args.enable_gpu:
-            cli_overrides["gpu_enabled"] = True
-        if args.disable_gpu:
-            cli_overrides["gpu_enabled"] = False:
+class Settings:
     """
     Centralized settings dataclass for ThreadX.
     All configuration loaded from TOML, no environment variables.
