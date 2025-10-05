@@ -1,385 +1,327 @@
-"""
-ThreadX Configuration Loaders - Phase 1
-Chargement et validation de la configuration TOML.
-Remplace les env vars de TradXPro par un système centralisé.
-"""
+"""TOML configuration loader for ThreadX."""
+from __future__ import annotations
 
-import os
-import sys
-import json
+import argparse
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional, Union, List
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import toml
+try:  # pragma: no cover - fallback for Python <3.11
+    import tomllib
+except ImportError:  # pragma: no cover - fallback path
+    import tomli as tomllib
 
-from .settings import Settings
+from .errors import ConfigurationError, PathValidationError
+from .settings import DEFAULT_SETTINGS, Settings
 
 logger = logging.getLogger(__name__)
 
 
-class ConfigurationError(Exception):
-    """Erreur de configuration ThreadX."""
-
-    pass
-
-
-class PathValidationError(Exception):
-    """Erreur de validation de chemin."""
-
-    pass
+def load_config_dict(path: Union[str, Path]) -> Dict[str, Any]:
+    config_path = Path(path)
+    try:
+        with config_path.open("rb") as handle:
+            return tomllib.load(handle)
+    except FileNotFoundError as exc:
+        raise ConfigurationError(str(config_path), "Configuration file not found") from exc
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigurationError(
+            str(config_path), "Invalid TOML syntax", details=str(exc)
+        ) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ConfigurationError(
+            str(config_path), "Unexpected error while loading config", details=str(exc)
+        ) from exc
 
 
 class TOMLConfigLoader:
-    """
-    Chargeur de configuration TOML pour ThreadX.
-
-    Remplace le système dispersé de TradXPro:
-    - core/indicators_db.py: load_config() + env vars
-    - perf_manager.py: PerfConfig hardcodé
-    - Chemins absolus éparpillés
-    """
+    """Load and validate ThreadX configuration files."""
 
     DEFAULT_CONFIG_NAME = "paths.toml"
 
     def __init__(self, config_path: Optional[Union[str, Path]] = None):
-        """
-        Initialise le loader de configuration.
+        self.config_path = self._resolve_config_path(config_path)
+        self.config_data = load_config_dict(self.config_path)
+        self._validated_paths: Dict[str, str] = {}
 
-        Args:
-            config_path: Chemin vers fichier TOML. Si None, cherche paths.toml
-                        dans le répertoire courant puis parent.
-        """
-        self.config_path = self._find_config_file(config_path)
-        self.config_data: Dict[str, Any] = {}
-        self._load_config()
+    # ------------------------------------------------------------------
+    # Path resolution helpers
+    # ------------------------------------------------------------------
+    def _resolve_config_path(self, provided: Optional[Union[str, Path]]) -> Path:
+        if provided:
+            candidate = Path(provided)
+            if candidate.exists():
+                return candidate
+            raise ConfigurationError(str(candidate), "Configuration file not found")
 
-    def _find_config_file(self, provided_path: Optional[Union[str, Path]]) -> Path:
-        """
-        Trouve le fichier de configuration TOML.
-        Inspiré de la logique de recherche de TradXPro mais plus robuste.
-        """
-        if provided_path:
-            path = Path(provided_path)
-            if path.exists():
-                logger.info(f"Configuration trouvée: {path}")
-                return path
-            else:
-                raise ConfigurationError(f"Fichier config spécifié introuvable: {path}")
-
-        # Recherche automatique: répertoire courant puis parent
         search_paths = [
             Path.cwd() / self.DEFAULT_CONFIG_NAME,
             Path.cwd().parent / self.DEFAULT_CONFIG_NAME,
-            Path(__file__).parent.parent.parent.parent
-            / self.DEFAULT_CONFIG_NAME,  # ThreadX root
+            Path(__file__).resolve().parents[2] / self.DEFAULT_CONFIG_NAME,
         ]
 
-        for path in search_paths:
-            if path.exists():
-                logger.info(f"Configuration auto-détectée: {path}")
-                return path
+        for candidate in search_paths:
+            if candidate.exists():
+                return candidate
 
-        raise ConfigurationError(
-            f"Fichier {self.DEFAULT_CONFIG_NAME} introuvable dans:\n"
-            + "\n".join(f"  - {p}" for p in search_paths)
-        )
+        searched = "\n".join(str(path) for path in search_paths)
+        raise ConfigurationError(None, "Configuration file not found", details=searched)
 
-    def _load_config(self) -> None:
-        """Charge le fichier TOML avec gestion d'erreurs."""
-        try:
-            logger.debug(f"Chargement configuration: {self.config_path}")
-            with open(self.config_path, "r", encoding="utf-8") as f:
-                self.config_data = toml.load(f)
-            logger.info(f"Configuration chargée: {len(self.config_data)} sections")
-        except Exception as e:
-            raise ConfigurationError(f"Erreur lecture {self.config_path}: {e}")
-
-    def get_section(self, section_name: str) -> Dict[str, Any]:
-        """Récupère une section de la configuration."""
-        if section_name not in self.config_data:
-            logger.warning(f"Section [{section_name}] manquante, retour dict vide")
-            return {}
-        return self.config_data[section_name]
+    # ------------------------------------------------------------------
+    # Access helpers
+    # ------------------------------------------------------------------
+    def get_section(self, name: str) -> Dict[str, Any]:
+        return dict(self.config_data.get(name, {}))
 
     def get_value(self, section: str, key: str, default: Any = None) -> Any:
-        """Récupère une valeur spécifique."""
-        section_data = self.get_section(section)
-        return section_data.get(key, default)
+        return self.get_section(section).get(key, default)
 
-    def expand_paths(self, section_name: str = "paths") -> Dict[str, Path]:
-        """
-        Expanse les chemins avec substitution de variables.
-        Remplace la logique de chemins absolus de TradXPro.
-        """
-        paths_config = self.get_section(section_name)
-        expanded = {}
-
-        # Premier passage: chemins de base
-        for key, value in paths_config.items():
-            if isinstance(value, str):
-                expanded[key] = Path(value)
-
-        # Deuxième passage: substitution variables
-        for key, path in expanded.items():
-            path_str = str(path)
-            if "{" in path_str:
-                # Substitution simple: {data_root} -> valeur de data_root
-                for var_key, var_path in expanded.items():
-                    placeholder = f"{{{var_key}}}"
-                    if placeholder in path_str:
-                        path_str = path_str.replace(placeholder, str(var_path))
-                expanded[key] = Path(path_str)
-
-        return expanded
-
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
     def validate_config(self) -> List[str]:
-        """
-        Valide la configuration et retourne les erreurs.
-        Plus strict que TradXPro pour éviter les problèmes runtime.
-        """
-        errors = []
-
-        # Sections requises
-        required_sections = ["paths", "gpu", "performance", "timeframes"]
+        errors: List[str] = []
+        self._validated_paths.clear()
+        required_sections = ["paths", "gpu", "performance", "trading"]
         for section in required_sections:
             if section not in self.config_data:
-                errors.append(f"Section [{section}] manquante")
+                errors.append(f"Missing required configuration section: {section}")
 
-        # Validation paths
-        paths_config = self.get_section("paths")
-        if "data_root" not in paths_config:
-            errors.append("paths.data_root requis")
+        errors.extend(self._validate_paths(check_only=True))
+        errors.extend(self._validate_gpu_config(check_only=True))
+        errors.extend(self._validate_performance_config(check_only=True))
+        return errors
 
-        # Validation GPU
-        gpu_config = self.get_section("gpu")
-        if gpu_config.get("devices") and not isinstance(gpu_config["devices"], list):
-            errors.append("gpu.devices doit être une liste")
+    def _validate_paths(self, check_only: bool = False) -> List[str]:
+        errors: List[str] = []
+        paths_section = self.get_section("paths")
+        security = self.get_section("security")
+        allow_abs = bool(security.get("allow_absolute_paths", False))
 
-        # Validation timeframes
-        tf_config = self.get_section("timeframes")
-        if tf_config.get("supported") and not isinstance(tf_config["supported"], list):
-            errors.append("timeframes.supported doit être une liste")
+        data_root = paths_section.get("data_root", "./data")
+        if not isinstance(data_root, str):
+            errors.append("paths.data_root must be a string")
+            data_root = "./data"
+
+        resolved_paths: Dict[str, str] = {"data_root": data_root}
+
+        for key, value in paths_section.items():
+            if not isinstance(value, str):
+                continue
+            if not allow_abs and Path(value).is_absolute():
+                errors.append(f"Absolute path not allowed for {key}: {value}")
+                continue
+            resolved_paths[key] = value.format(data_root=data_root)
+
+        if not check_only:
+            self._validated_paths.update(resolved_paths)
 
         return errors
 
-    def create_settings(self, **overrides) -> Settings:
-        """
-        Crée une instance Settings à partir de la config TOML.
-        Permet des overrides pour CLI args.
-        """
-        # Validation préalable
+    def _validate_gpu_config(self, check_only: bool = False) -> List[str]:
+        errors: List[str] = []
+        gpu_section = self.get_section("gpu")
+
+        load_balance = gpu_section.get("load_balance", {})
+        if isinstance(load_balance, dict) and load_balance:
+            total = sum(load_balance.values())
+            if not (0.99 <= total <= 1.01):
+                errors.append("GPU load balance ratios must sum to 1.0")
+        elif load_balance not in ({}, None):
+            errors.append("gpu.load_balance must be a mapping of ratios")
+
+        threshold = gpu_section.get("memory_threshold", 0.8)
+        if not isinstance(threshold, (int, float)) or not (0.1 <= float(threshold) <= 1.0):
+            errors.append("gpu.memory_threshold must be between 0.1 and 1.0")
+
+        return errors
+
+    def _validate_performance_config(self, check_only: bool = False) -> List[str]:
+        errors: List[str] = []
+        perf_section = self.get_section("performance")
+        for key in ("target_tasks_per_min", "vectorization_batch_size", "cache_ttl_sec", "max_workers"):
+            value = perf_section.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, (int, float)) or value <= 0:
+                errors.append(f"performance.{key} must be a positive number")
+        return errors
+
+    # ------------------------------------------------------------------
+    # Settings construction
+    # ------------------------------------------------------------------
+    def create_settings(self, **overrides: Any) -> Settings:
         errors = self.validate_config()
         if errors:
             raise ConfigurationError(
-                f"Configuration invalide:\n" + "\n".join(f"  - {e}" for e in errors)
+                str(self.config_path), "Invalid configuration", details="\n".join(errors)
             )
 
-        # Expansion des chemins
-        expanded_paths = self.expand_paths()
+        self._validated_paths.clear()
+        path_errors = self._validate_paths(check_only=False)
+        if path_errors:
+            raise PathValidationError("; ".join(path_errors))
 
-        # Construction des paramètres
-        paths_config = self.get_section("paths")
-        gpu_config = self.get_section("gpu")
-        perf_config = self.get_section("performance")
-        indicators_config = self.get_section("indicators")
-        tf_config = self.get_section("timeframes")
-        logging_config = self.get_section("logging")
-        security_config = self.get_section("security")
-        backtest_config = self.get_section("backtest")
-        ui_config = self.get_section("ui")
+        paths = self._validated_paths
+        gpu = self.get_section("gpu")
+        performance = self.get_section("performance")
+        trading = self.get_section("trading")
+        backtesting = self.get_section("backtesting")
+        logging_section = self.get_section("logging")
+        security = self.get_section("security")
+        monte_carlo = self.get_section("monte_carlo")
+        cache = self.get_section("cache")
 
-        # Phase 1: Version simplifiée - seulement les champs de settings_simple.py
+        defaults = DEFAULT_SETTINGS
         return Settings(
-            # Paths
-            DATA_ROOT=Path(
-                overrides.get("data_root", expanded_paths.get("data_root", "./data"))
+            DATA_ROOT=overrides.get("data_root", paths.get("data_root", defaults.DATA_ROOT)),
+            RAW_JSON=overrides.get("raw_json", paths.get("raw_json", defaults.RAW_JSON)),
+            PROCESSED=overrides.get("processed", paths.get("processed", defaults.PROCESSED)),
+            INDICATORS=overrides.get("indicators", paths.get("indicators", defaults.INDICATORS)),
+            RUNS=overrides.get("runs", paths.get("runs", defaults.RUNS)),
+            LOGS=overrides.get("logs", paths.get("logs", defaults.LOGS)),
+            CACHE=overrides.get("cache", paths.get("cache", defaults.CACHE)),
+            CONFIG=overrides.get("config", paths.get("config", defaults.CONFIG)),
+            GPU_DEVICES=gpu.get("devices", defaults.GPU_DEVICES),
+            LOAD_BALANCE=gpu.get("load_balance", defaults.LOAD_BALANCE),
+            MEMORY_THRESHOLD=gpu.get("memory_threshold", defaults.MEMORY_THRESHOLD),
+            AUTO_FALLBACK=gpu.get("auto_fallback", defaults.AUTO_FALLBACK),
+            ENABLE_GPU=overrides.get("enable_gpu", gpu.get("enable_gpu", defaults.ENABLE_GPU)),
+            TARGET_TASKS_PER_MIN=performance.get(
+                "target_tasks_per_min", defaults.TARGET_TASKS_PER_MIN
             ),
-            INDICATORS_ROOT=Path(
-                overrides.get(
-                    "indicators", expanded_paths.get("indicators", "./data/indicators")
-                )
+            VECTORIZATION_BATCH_SIZE=performance.get(
+                "vectorization_batch_size", defaults.VECTORIZATION_BATCH_SIZE
             ),
-            LOGS_DIR=Path(overrides.get("logs", expanded_paths.get("logs", "./logs"))),
-            # GPU
-            GPU_DEVICES=gpu_config.get("devices", ["5090", "2060"]),
-            GPU_LOAD_BALANCE=gpu_config.get(
-                "load_balance", {"5090": 0.75, "2060": 0.25}
+            CACHE_TTL_SEC=performance.get("cache_ttl_sec", defaults.CACHE_TTL_SEC),
+            MAX_WORKERS=performance.get("max_workers", defaults.MAX_WORKERS),
+            MEMORY_LIMIT_MB=performance.get("memory_limit_mb", defaults.MEMORY_LIMIT_MB),
+            SUPPORTED_TF=tuple(trading.get("supported_timeframes", defaults.SUPPORTED_TF)),
+            DEFAULT_TIMEFRAME=trading.get("default_timeframe", defaults.DEFAULT_TIMEFRAME),
+            BASE_CURRENCY=trading.get("base_currency", defaults.BASE_CURRENCY),
+            FEE_RATE=trading.get("fee_rate", defaults.FEE_RATE),
+            SLIPPAGE_RATE=trading.get("slippage_rate", defaults.SLIPPAGE_RATE),
+            INITIAL_CAPITAL=backtesting.get("initial_capital", defaults.INITIAL_CAPITAL),
+            MAX_POSITIONS=backtesting.get("max_positions", defaults.MAX_POSITIONS),
+            POSITION_SIZE=backtesting.get("position_size", defaults.POSITION_SIZE),
+            STOP_LOSS=backtesting.get("stop_loss", defaults.STOP_LOSS),
+            TAKE_PROFIT=backtesting.get("take_profit", defaults.TAKE_PROFIT),
+            LOG_LEVEL=overrides.get("log_level", logging_section.get("level", defaults.LOG_LEVEL)),
+            MAX_FILE_SIZE_MB=logging_section.get("max_file_size_mb", defaults.MAX_FILE_SIZE_MB),
+            MAX_FILES=logging_section.get("max_files", defaults.MAX_FILES),
+            LOG_ROTATE=logging_section.get("log_rotate", defaults.LOG_ROTATE),
+            LOG_FORMAT=logging_section.get("format", defaults.LOG_FORMAT),
+            READ_ONLY_DATA=security.get("read_only_data", defaults.READ_ONLY_DATA),
+            VALIDATE_PATHS=security.get("validate_paths", defaults.VALIDATE_PATHS),
+            ALLOW_ABSOLUTE_PATHS=security.get(
+                "allow_absolute_paths", defaults.ALLOW_ABSOLUTE_PATHS
             ),
-            # Performance
-            TARGET_TASKS_PER_MIN=perf_config.get("target_tasks_per_min", 2500),
-            # Timeframes
-            SUPPORTED_TIMEFRAMES=tuple(
-                tf_config.get(
-                    "supported",
-                    [
-                        "1m",
-                        "3m",
-                        "5m",
-                        "15m",
-                        "30m",
-                        "1h",
-                        "2h",
-                        "4h",
-                        "6h",
-                        "8h",
-                        "12h",
-                        "1d",
-                    ],
-                )
+            SECURITY_MAX_FILE_SIZE_MB=security.get(
+                "max_file_size_mb", defaults.SECURITY_MAX_FILE_SIZE_MB
             ),
-            # Logging
-            LOG_LEVEL=logging_config.get("level", "INFO"),
-            # Security
-            ALLOW_ABSOLUTE_PATHS=security_config.get("allow_absolute_paths", False),
+            DEFAULT_SIMULATIONS=monte_carlo.get(
+                "default_simulations", defaults.DEFAULT_SIMULATIONS
+            ),
+            MAX_SIMULATIONS=monte_carlo.get("max_simulations", defaults.MAX_SIMULATIONS),
+            DEFAULT_STEPS=monte_carlo.get("default_steps", defaults.DEFAULT_STEPS),
+            MC_SEED=monte_carlo.get("seed", defaults.MC_SEED),
+            CONFIDENCE_LEVELS=list(
+                monte_carlo.get("confidence_levels", defaults.CONFIDENCE_LEVELS)
+            ),
+            CACHE_ENABLE=cache.get("enable", defaults.CACHE_ENABLE),
+            CACHE_MAX_SIZE_MB=cache.get("max_size_mb", defaults.CACHE_MAX_SIZE_MB),
+            CACHE_TTL_SECONDS=cache.get("ttl_seconds", defaults.CACHE_TTL_SECONDS),
+            CACHE_COMPRESSION=cache.get("compression", defaults.CACHE_COMPRESSION),
+            CACHE_STRATEGY=cache.get("strategy", defaults.CACHE_STRATEGY),
         )
 
-    def load_config(self, overrides: Optional[Dict[str, Any]] = None) -> Settings:
-        """
-        Méthode de compatibilité pour les tests.
-        Charge la config et retourne un objet Settings.
-        """
-        if overrides is None:
-            overrides = {}
+    def load_config(self, cli_overrides: Optional[Dict[str, Any]] = None) -> Settings:
+        overrides = cli_overrides or {}
         return self.create_settings(**overrides)
 
-
-def load_settings(
-    config_path: Optional[Union[str, Path]] = None, **overrides
-) -> Settings:
-    """
-    Fonction utilitaire pour charger les settings ThreadX.
-
-    Args:
-        config_path: Chemin vers paths.toml (optionnel)
-        **overrides: Surcharges CLI (ex: data_root="./custom")
-
-    Returns:
-        Instance Settings configurée
-
-    Example:
-        # Chargement standard
-        settings = load_settings()
-
-        # Avec overrides CLI
-        settings = load_settings(data_root="./custom_data", logs="./custom_logs")
-    """
-    loader = TOMLConfigLoader(config_path)
-    return loader.create_settings(**overrides)
+    # ------------------------------------------------------------------
+    # CLI helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def create_cli_parser() -> argparse.ArgumentParser:
+        parser = argparse.ArgumentParser(description="ThreadX configuration loader")
+        parser.add_argument("--config", type=str, default=None)
+        parser.add_argument("--data-root", dest="data_root", type=str)
+        parser.add_argument("--log-level", dest="log_level", type=str)
+        parser.add_argument("--enable-gpu", dest="enable_gpu", action="store_true")
+        parser.add_argument("--disable-gpu", dest="disable_gpu", action="store_true")
+        parser.add_argument("--print-config", action="store_true")
+        return parser
 
 
-# Cache global pour get_settings
-_cached_settings: Optional[Settings] = None
+_settings_cache: Optional[Settings] = None
+
+
+def load_settings(config_path: Union[str, Path] = "paths.toml", cli_args: Optional[Sequence[str]] = None) -> Settings:
+    parser = TOMLConfigLoader.create_cli_parser()
+    args = parser.parse_args(cli_args) if cli_args is not None else parser.parse_args([])
+
+    overrides: Dict[str, Any] = {}
+    if args.data_root:
+        overrides["data_root"] = args.data_root
+    if args.log_level:
+        overrides["log_level"] = args.log_level
+    if args.enable_gpu:
+        overrides["enable_gpu"] = True
+    if args.disable_gpu:
+        overrides["enable_gpu"] = False
+
+    resolved_config = args.config or config_path
+    loader = TOMLConfigLoader(resolved_config)
+    settings = loader.create_settings(**overrides)
+
+    if args.print_config:
+        print_config(settings)
+
+    return settings
 
 
 def get_settings(force_reload: bool = False) -> Settings:
-    """
-    Récupère les settings avec cache global (singleton pattern).
-    Compatible avec les tests existants.
-    """
-    global _cached_settings
-    if _cached_settings is None or force_reload:
-        _cached_settings = load_settings()
-    return _cached_settings
+    global _settings_cache
+    if _settings_cache is None or force_reload:
+        _settings_cache = load_settings()
+    return _settings_cache
 
 
 def print_config(settings: Optional[Settings] = None) -> None:
-    """
-    Affiche la configuration actuelle pour debugging.
-    Utile pour valider la Phase 1.
-    """
-    if settings is None:
-        settings = load_settings()
+    cfg = settings or get_settings()
+    print("ThreadX Configuration")
+    print("=" * 50)
+    print("\n[PATHS]")
+    print(f"Data Root: {cfg.DATA_ROOT}")
+    print(f"Indicators: {cfg.INDICATORS}")
+    print(f"Runs: {cfg.RUNS}")
+    print(f"Logs: {cfg.LOGS}")
 
-    print("=" * 60)
-    print("📋 CONFIGURATION THREADX - PHASE 1")
-    print("=" * 60)
+    print("\n[GPU]")
+    print(f"Devices: {cfg.GPU_DEVICES}")
+    print(f"Load Balance: {cfg.LOAD_BALANCE}")
+    print(f"GPU Enabled: {cfg.ENABLE_GPU}")
 
-    # Paths - Phase 1 (seulement champs existants)
-    print("\n📁 CHEMINS:")
-    print(f"  Data Root:    {settings.DATA_ROOT}")
-    print(f"  Indicators:   {settings.INDICATORS_ROOT}")
-    print(f"  Logs:         {settings.LOGS_DIR}")
+    print("\n[PERFORMANCE]")
+    print(f"Target Tasks/Min: {cfg.TARGET_TASKS_PER_MIN}")
+    print(f"Max Workers: {cfg.MAX_WORKERS}")
 
-    # GPU
-    print(f"\n🚀 GPU:")
-    print(f"  Devices:      {settings.GPU_DEVICES}")
-    print(f"  Load Balance: {settings.GPU_LOAD_BALANCE}")
+    print("\n[TRADING]")
+    print(f"Supported TF: {cfg.SUPPORTED_TF}")
+    print(f"Default TF: {cfg.DEFAULT_TIMEFRAME}")
 
-    # Performance
-    print(f"\n⚡ PERFORMANCE:")
-    print(f"  Target Tasks/min: {settings.TARGET_TASKS_PER_MIN}")
-
-    # Timeframes
-    print(f"\n📊 TIMEFRAMES:")
-    print(f"  Supportés:    {', '.join(settings.SUPPORTED_TIMEFRAMES)}")
-
-    # Sécurité
-    print(f"\n🔒 SÉCURITÉ:")
-    print(f"  Chemins absolus:  {settings.ALLOW_ABSOLUTE_PATHS}")
-    print(f"  Log Level:        {settings.LOG_LEVEL}")
-
-    print("=" * 60)
+    print("\n[SECURITY]")
+    print(f"Read Only: {cfg.READ_ONLY_DATA}")
+    print(f"Validate Paths: {cfg.VALIDATE_PATHS}")
 
 
-# CLI Argument Parser pour overrides
-def create_argument_parser():
-    """Crée le parser CLI pour surcharger la config TOML."""
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="ThreadX - Framework de backtesting crypto",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Exemples:
-  python -m threadx --data-root ./custom_data
-  python -m threadx --config ./custom_paths.toml
-  python -m threadx --gpu-devices 5090 2060 --log-level DEBUG
-        """,
-    )
-
-    # Configuration
-    parser.add_argument(
-        "--config", type=str, help="Chemin vers fichier paths.toml personnalisé"
-    )
-
-    # Chemins
-    parser.add_argument("--data-root", type=str, help="Répertoire racine des données")
-    parser.add_argument("--indicators", type=str, help="Répertoire cache indicateurs")
-    parser.add_argument("--logs", type=str, help="Répertoire logs")
-
-    # GPU
-    parser.add_argument(
-        "--gpu-devices", nargs="+", help="Liste devices GPU (ex: 5090 2060)"
-    )
-    parser.add_argument("--disable-gpu", action="store_true", help="Désactiver GPU")
-
-    # Performance
-    parser.add_argument("--max-workers", type=int, help="Nombre max workers parallèles")
-    parser.add_argument("--batch-size", type=int, help="Taille batch vectorisation")
-
-    # Logging
-    parser.add_argument(
-        "--log-level",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="Niveau de log",
-    )
-
-    return parser
-
-
-if __name__ == "__main__":
-    # Test CLI
-    parser = create_argument_parser()
-    args = parser.parse_args()
-
-    # Conversion args vers dict overrides
-    overrides = {k: v for k, v in vars(args).items() if v is not None and k != "config"}
-
-    # Chargement avec overrides
-    settings = load_settings(
-        args.config if hasattr(args, "config") else None, **overrides
-    )
-
-    # Affichage
-    print_config(settings)
+__all__ = [
+    "ConfigurationError",
+    "PathValidationError",
+    "TOMLConfigLoader",
+    "load_config_dict",
+    "load_settings",
+    "get_settings",
+    "print_config",
+]
