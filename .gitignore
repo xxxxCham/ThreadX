@@ -2,6 +2,7 @@ indicators_cache/
 test_temp/
 test_data/
 cache/
+data/
 __pycache__/
 *.pyc
 *.pyo
