@@ -37,3 +37,9 @@ artifacts/
 
 # Setup project
 bash scripts/codex_setup.sh
+
+/.archive/
+/logs/
+/artifacts/
+**/__pycache__/
+.pytest_cache/
