@@ -1,39 +1,25 @@
+/.archive/
 indicators_cache/
 test_temp/
 test_data/
 cache/
 data/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+logs/
+**/__pycache__/
+.pytest_cache/
+.mypy_cache/
+**/egg-info/
 .venv/
 env/
 venv/
+*.pyc
+*.pyo
+*.pyd
 *.log
 *.tmp
 *.bak
 *.swp
 .DS_Store
 Thumbs.db
-
-# Profils de performance GPU
-artifacts/profiles/*.json
-artifacts/profiles/*.bak*
-artifacts/benchmarks/
-
-# Ignorer fichiers zip volumineux
-*.zip
-
-# Ignorer métadonnées Python
-**/egg-info/
-
-# Ignorer caches de tests et de type-checker
-.pytest_cache/
-.mypy_cache/
-
-# Ignorer dossier d'artefacts complet
 artifacts/
-
-# Setup project
-bash scripts/codex_setup.sh
+*.zip
