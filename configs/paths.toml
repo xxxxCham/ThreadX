@@ -1,0 +1,35 @@
+# ThreadX Configuration - Paths
+# Configuration des chemins et paramètres par défaut
+
+[paths]
+# Dossiers de base
+base_dir = "."
+data_dir = "data"
+cache_dir = "data/cache"
+processed_dir = "data/processed"
+exports_dir = "data/exports"
+logs_dir = "logs"
+configs_dir = "configs"
+
+[performance]
+# Paramètres de performance
+default_threads = 4
+max_threads = 16
+cache_ttl_minutes = 15
+
+[data_sources]
+# Sources de données par défaut
+default_source = "stub"
+fallback_source = "mock"
+
+[indicators]
+# Configuration des indicateurs
+rsi_window = 14
+macd_fast = 12
+macd_slow = 26
+macd_signal = 9
+bbands_window = 20
+bbands_std = 2.0
+sma_window = 20
+ema_window = 50
+atr_window = 14
