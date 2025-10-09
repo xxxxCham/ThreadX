@@ -23,3 +23,5 @@ venv/
 Thumbs.db
 artifacts/
 *.zip
+/logs/
+/artifacts/
