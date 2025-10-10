@@ -1,0 +1,2 @@
+- 2025-10-10 : Stabilisation du loader TOML (attributs, migrations, overrides CLI, fallback défaut) pour faire repasser la batterie de tests config.
+- 2025-10-10 : Corrigé l'analyse des arguments CLI du loader pour utiliser les paramètres réels au lancement standard.

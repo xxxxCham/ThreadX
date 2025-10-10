@@ -89,6 +89,11 @@ class Settings:
     CACHE_COMPRESSION: bool = True
     CACHE_STRATEGY: str = "LRU"
 
+    @property
+    def SUPPORTED_TIMEFRAMES(self) -> List[str]:
+        """Backward-compatible list alias for supported timeframes."""
+        return list(self.SUPPORTED_TF)
+
 
 DEFAULT_SETTINGS = Settings()
 
