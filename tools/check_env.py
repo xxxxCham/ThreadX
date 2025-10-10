@@ -1,4 +1,4 @@
-﻿"""
+"""
 ThreadX Environment Check Tool - Phase 10
 ========================================
 
@@ -372,7 +372,7 @@ def run_pandas_benchmark() -> BenchmarkResult:
         })
 
         # Resampling
-        resampled = df.resample('1H').agg({
+        resampled = df.resample('1h').agg({
             'value': 'mean'
         })
 
@@ -783,7 +783,7 @@ Examples:
 
     # Create report
     report = EnvironmentReport(
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now([System.DateTime]::Utc).isoformat(),
         system=system_specs,
         packages=packages,
         gpu=gpu_info,
