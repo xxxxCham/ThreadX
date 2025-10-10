@@ -5,6 +5,22 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
 
+_DEFAULT_SUPPORTED_TIMEFRAMES: Tuple[str, ...] = (
+    "1m",
+    "3m",
+    "5m",
+    "15m",
+    "30m",
+    "1h",
+    "2h",
+    "4h",
+    "6h",
+    "8h",
+    "12h",
+    "1d",
+)
+
+
 @dataclass(frozen=True)
 class Settings:
     """Centralised application configuration."""
@@ -36,19 +52,9 @@ class Settings:
     MEMORY_LIMIT_MB: int = 8192
 
     # Trading
-    SUPPORTED_TF: Tuple[str, ...] = (
-        "1m",
-        "3m",
-        "5m",
-        "15m",
-        "30m",
-        "1h",
-        "2h",
-        "4h",
-        "6h",
-        "8h",
-        "12h",
-        "1d",
+    SUPPORTED_TF: Tuple[str, ...] = _DEFAULT_SUPPORTED_TIMEFRAMES
+    SUPPORTED_TIMEFRAMES: List[str] = field(
+        default_factory=lambda: list(_DEFAULT_SUPPORTED_TIMEFRAMES)
     )
     DEFAULT_TIMEFRAME: str = "1h"
     BASE_CURRENCY: str = "USDT"
