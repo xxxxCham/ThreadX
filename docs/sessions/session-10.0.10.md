@@ -1,0 +1,1 @@
+- 2025-10-10 : Stabilisation du chargeur TOML (validation chemins, overrides CLI, migration legacy, compatibilité erreurs).
