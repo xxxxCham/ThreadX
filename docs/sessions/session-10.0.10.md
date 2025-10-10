@@ -4,3 +4,4 @@
 2025-02-14 - Rétablissement des erreurs de configuration (kwargs), de la validation des chemins et du parser CLI sans doublons.
 - 2025-10-10 07:33 - indicators.engine: Stabilisation de l'import et ajout test fumée.
 - 2025-10-10 07:44 - indicators/backtest: Stabilisation engine, cache TTL/LRU, timeouts.
+- 2025-10-10 07:56 - data_manager: Gestion headless du démarrage Data Manager.

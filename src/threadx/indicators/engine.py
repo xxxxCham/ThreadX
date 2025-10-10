@@ -19,7 +19,7 @@ _BACKEND_ALIASES = {
     "cpu": "cpu",
     "gpu": "gpu",
 }
-
+        
 
 class IndicatorSpecificationError(ValueError):
     """Raised when an indicator specification is invalid."""
