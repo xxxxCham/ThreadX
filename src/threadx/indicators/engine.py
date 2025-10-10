@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Mapping, Sequence
 import logging
 from typing import Any, Iterable, Mapping, Sequence
 
