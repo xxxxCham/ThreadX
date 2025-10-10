@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -43,6 +44,13 @@ class TOMLConfigLoader:
         self.config_path = self._resolve_config_path(config_path)
         self.config_data = load_config_dict(self.config_path)
         self._validated_paths: Dict[str, str] = {}
+        self._migrate_legacy_config()
+
+    def _ensure_internal_state(self) -> None:
+        if not hasattr(self, "config_data"):
+            self.config_data = {}
+        if not hasattr(self, "_validated_paths"):
+            self._validated_paths = {}
 
     # ------------------------------------------------------------------
     # Path resolution helpers
@@ -79,9 +87,32 @@ class TOMLConfigLoader:
     # ------------------------------------------------------------------
     # Validation
     # ------------------------------------------------------------------
+    def _migrate_legacy_config(self) -> None:
+        self._ensure_internal_state()
+        if not isinstance(self.config_data, dict):
+            self.config_data = {}
+            return
+
+        trading_section = self.config_data.get("trading")
+        if trading_section is not None and not isinstance(trading_section, dict):
+            trading_section = {}
+            self.config_data["trading"] = trading_section
+
+        legacy_timeframes = self.config_data.get("timeframes", {})
+        if isinstance(legacy_timeframes, dict):
+            supported = legacy_timeframes.get("supported")
+            if isinstance(supported, (list, tuple)):
+                if trading_section is None:
+                    trading_section = {}
+                    self.config_data["trading"] = trading_section
+                if "supported_timeframes" not in trading_section:
+                    trading_section["supported_timeframes"] = list(supported)
+
     def validate_config(self) -> List[str]:
+        self._ensure_internal_state()
         errors: List[str] = []
         self._validated_paths.clear()
+        self._migrate_legacy_config()
         required_sections = ["paths", "gpu", "performance", "trading"]
         for section in required_sections:
             if section not in self.config_data:
@@ -93,10 +124,12 @@ class TOMLConfigLoader:
         return errors
 
     def _validate_paths(self, check_only: bool = False) -> List[str]:
+        self._ensure_internal_state()
         errors: List[str] = []
         paths_section = self.get_section("paths")
         security = self.get_section("security")
         allow_abs = bool(security.get("allow_absolute_paths", False))
+        validate_paths = bool(security.get("validate_paths", True))
 
         data_root = paths_section.get("data_root", "./data")
         if not isinstance(data_root, str):
@@ -108,10 +141,18 @@ class TOMLConfigLoader:
         for key, value in paths_section.items():
             if not isinstance(value, str):
                 continue
-            if not allow_abs and Path(value).is_absolute():
+            if validate_paths and not allow_abs and Path(value).is_absolute():
                 errors.append(f"Absolute path not allowed for {key}: {value}")
                 continue
             resolved_paths[key] = value.format(data_root=data_root)
+
+        should_create = not check_only and not validate_paths
+        if should_create:
+            for path_value in resolved_paths.values():
+                try:
+                    Path(path_value).expanduser().mkdir(parents=True, exist_ok=True)
+                except OSError as exc:
+                    errors.append(f"Unable to create path {path_value}: {exc}")
 
         if not check_only:
             self._validated_paths.update(resolved_paths)
@@ -119,13 +160,23 @@ class TOMLConfigLoader:
         return errors
 
     def _validate_gpu_config(self, check_only: bool = False) -> List[str]:
+        self._ensure_internal_state()
         errors: List[str] = []
         gpu_section = self.get_section("gpu")
 
         load_balance = gpu_section.get("load_balance", {})
         if isinstance(load_balance, dict) and load_balance:
-            total = sum(load_balance.values())
-            if not (0.99 <= total <= 1.01):
+            numeric_values: List[float] = []
+            for device, value in load_balance.items():
+                if not isinstance(value, (int, float)):
+                    errors.append(f"GPU load balance for {device} must be numeric")
+                    continue
+                if float(value) < 0:
+                    errors.append("GPU load balance negative values not allowed")
+                numeric_values.append(float(value))
+
+            total = sum(numeric_values)
+            if numeric_values and not (0.99 <= total <= 1.01):
                 errors.append("GPU load balance ratios must sum to 1.0")
         elif load_balance not in ({}, None):
             errors.append("gpu.load_balance must be a mapping of ratios")
@@ -137,6 +188,7 @@ class TOMLConfigLoader:
         return errors
 
     def _validate_performance_config(self, check_only: bool = False) -> List[str]:
+        self._ensure_internal_state()
         errors: List[str] = []
         perf_section = self.get_section("performance")
         for key in ("target_tasks_per_min", "vectorization_batch_size", "cache_ttl_sec", "max_workers"):
@@ -151,6 +203,8 @@ class TOMLConfigLoader:
     # Settings construction
     # ------------------------------------------------------------------
     def create_settings(self, **overrides: Any) -> Settings:
+        self._ensure_internal_state()
+        self._migrate_legacy_config()
         errors = self.validate_config()
         if errors:
             raise ConfigurationError(
@@ -194,7 +248,7 @@ class TOMLConfigLoader:
                 "vectorization_batch_size", defaults.VECTORIZATION_BATCH_SIZE
             ),
             CACHE_TTL_SEC=performance.get("cache_ttl_sec", defaults.CACHE_TTL_SEC),
-            MAX_WORKERS=performance.get("max_workers", defaults.MAX_WORKERS),
+            MAX_WORKERS=overrides.get("max_workers", performance.get("max_workers", defaults.MAX_WORKERS)),
             MEMORY_LIMIT_MB=performance.get("memory_limit_mb", defaults.MEMORY_LIMIT_MB),
             SUPPORTED_TF=tuple(trading.get("supported_timeframes", defaults.SUPPORTED_TF)),
             DEFAULT_TIMEFRAME=trading.get("default_timeframe", defaults.DEFAULT_TIMEFRAME),
@@ -248,6 +302,7 @@ class TOMLConfigLoader:
         parser.add_argument("--config", type=str, default=None)
         parser.add_argument("--data-root", dest="data_root", type=str)
         parser.add_argument("--log-level", dest="log_level", type=str)
+        parser.add_argument("--max-workers", dest="max_workers", type=int)
         parser.add_argument("--enable-gpu", dest="enable_gpu", action="store_true")
         parser.add_argument("--disable-gpu", dest="disable_gpu", action="store_true")
         parser.add_argument("--print-config", action="store_true")
@@ -266,19 +321,44 @@ def load_settings(config_path: Union[str, Path] = "paths.toml", cli_args: Option
         overrides["data_root"] = args.data_root
     if args.log_level:
         overrides["log_level"] = args.log_level
+    if args.max_workers is not None:
+        overrides["max_workers"] = args.max_workers
     if args.enable_gpu:
         overrides["enable_gpu"] = True
     if args.disable_gpu:
         overrides["enable_gpu"] = False
 
     resolved_config = args.config or config_path
-    loader = TOMLConfigLoader(resolved_config)
-    settings = loader.create_settings(**overrides)
+    try:
+        loader = TOMLConfigLoader(resolved_config)
+        settings = loader.create_settings(**overrides)
+    except ConfigurationError as exc:
+        logger.warning("Falling back to default settings: %s", exc)
+        settings = _apply_overrides_to_defaults(overrides)
 
     if args.print_config:
         print_config(settings)
 
     return settings
+
+
+def _apply_overrides_to_defaults(overrides: Dict[str, Any]) -> Settings:
+    if not overrides:
+        return DEFAULT_SETTINGS
+
+    mapping = {
+        "data_root": "DATA_ROOT",
+        "log_level": "LOG_LEVEL",
+        "enable_gpu": "ENABLE_GPU",
+        "max_workers": "MAX_WORKERS",
+    }
+
+    update_kwargs: Dict[str, Any] = {}
+    for key, field_name in mapping.items():
+        if key in overrides:
+            update_kwargs[field_name] = overrides[key]
+
+    return replace(DEFAULT_SETTINGS, **update_kwargs) if update_kwargs else DEFAULT_SETTINGS
 
 
 def get_settings(force_reload: bool = False) -> Settings:
@@ -308,7 +388,7 @@ def print_config(settings: Optional[Settings] = None) -> None:
     print(f"Max Workers: {cfg.MAX_WORKERS}")
 
     print("\n[TRADING]")
-    print(f"Supported TF: {cfg.SUPPORTED_TF}")
+    print(f"Supported TF: {cfg.SUPPORTED_TIMEFRAMES}")
     print(f"Default TF: {cfg.DEFAULT_TIMEFRAME}")
 
     print("\n[SECURITY]")

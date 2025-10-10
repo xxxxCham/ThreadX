@@ -1,0 +1,3 @@
+- Correction loader: initialisation interne, migration legacy timeframes et création chemins sécurisée.
+- Correction load_settings: gestion fallback défaut + override CLI max_workers.
+- Correction configuration: alias SUPPORTED_TIMEFRAMES et validation GPU non négative.

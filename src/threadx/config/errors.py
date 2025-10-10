@@ -1,18 +1,28 @@
 """Configuration-related exceptions for ThreadX."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 
-@dataclass
 class ConfigurationError(Exception):
-    path: Optional[str]
-    reason: str
-    details: Optional[str] = None
+    """Structured configuration error with optional context."""
 
-    def __post_init__(self) -> None:  # pragma: no cover - dataclass validation trivial
-        super().__init__(self.reason)
+    def __init__(
+        self,
+        path: Optional[str] | None,
+        reason: Optional[str] = None,
+        *,
+        details: Optional[str] = None,
+    ) -> None:
+        if reason is None:
+            # Allow shorthand initialisation ``ConfigurationError("message")``
+            reason = "Unknown configuration error" if path is None else str(path)
+            path = None
+
+        super().__init__(reason)
+        self.path: Optional[str] = path
+        self.reason: str = reason
+        self.details: Optional[str] = details
 
     @property
     def user_message(self) -> str:
