@@ -91,11 +91,33 @@ class TOMLConfigLoader:
     # ------------------------------------------------------------------
     # Validation
     # ------------------------------------------------------------------
+    def _migrate_legacy_config(self) -> None:
+        self._ensure_internal_state()
+        if not isinstance(self.config_data, dict):
+            self.config_data = {}
+            return
+
+        trading_section = self.config_data.get("trading")
+        if trading_section is not None and not isinstance(trading_section, dict):
+            trading_section = {}
+            self.config_data["trading"] = trading_section
+
+        legacy_timeframes = self.config_data.get("timeframes", {})
+        if isinstance(legacy_timeframes, dict):
+            supported = legacy_timeframes.get("supported")
+            if isinstance(supported, (list, tuple)):
+                if trading_section is None:
+                    trading_section = {}
+                    self.config_data["trading"] = trading_section
+                if "supported_timeframes" not in trading_section:
+                    trading_section["supported_timeframes"] = list(supported)
+
     def validate_config(self) -> List[str]:
         self._ensure_internal_state()
         self._migrate_legacy_config()
         errors: List[str] = []
         self._validated_paths.clear()
+        self._migrate_legacy_config()
         required_sections = ["paths", "gpu", "performance", "trading"]
         for section in required_sections:
             if section not in self.config_data:
@@ -129,6 +151,14 @@ class TOMLConfigLoader:
                 errors.append(f"Absolute path not allowed for {key}: {value}")
                 continue
             resolved_paths[key] = value.format(data_root=data_root)
+
+        should_create = not check_only and not validate_paths
+        if should_create:
+            for path_value in resolved_paths.values():
+                try:
+                    Path(path_value).expanduser().mkdir(parents=True, exist_ok=True)
+                except OSError as exc:
+                    errors.append(f"Unable to create path {path_value}: {exc}")
 
         if not check_only:
             self._validated_paths.update(resolved_paths)
@@ -316,6 +346,7 @@ class TOMLConfigLoader:
         parser.add_argument("--config", type=str, default=None)
         parser.add_argument("--data-root", dest="data_root", type=str)
         parser.add_argument("--log-level", dest="log_level", type=str)
+        parser.add_argument("--max-workers", dest="max_workers", type=int)
         parser.add_argument("--enable-gpu", dest="enable_gpu", action="store_true")
         parser.add_argument("--disable-gpu", dest="disable_gpu", action="store_true")
         parser.add_argument("--max-workers", dest="max_workers", type=int)
@@ -335,6 +366,8 @@ def load_settings(config_path: Union[str, Path] = "paths.toml", cli_args: Option
         overrides["data_root"] = args.data_root
     if args.log_level:
         overrides["log_level"] = args.log_level
+    if args.max_workers is not None:
+        overrides["max_workers"] = args.max_workers
     if args.enable_gpu:
         overrides["enable_gpu"] = True
     if args.disable_gpu:
@@ -366,81 +399,23 @@ def load_settings(config_path: Union[str, Path] = "paths.toml", cli_args: Option
     return settings
 
 
-def _apply_overrides(base: Settings, overrides: Dict[str, Any]) -> Settings:
+def _apply_overrides_to_defaults(overrides: Dict[str, Any]) -> Settings:
     if not overrides:
-        return base
+        return DEFAULT_SETTINGS
 
-    return Settings(
-        DATA_ROOT=overrides.get("data_root", base.DATA_ROOT),
-        RAW_JSON=overrides.get("raw_json", base.RAW_JSON),
-        PROCESSED=overrides.get("processed", base.PROCESSED),
-        INDICATORS=overrides.get("indicators", base.INDICATORS),
-        RUNS=overrides.get("runs", base.RUNS),
-        LOGS=overrides.get("logs", base.LOGS),
-        CACHE=overrides.get("cache", base.CACHE),
-        CONFIG=overrides.get("config", base.CONFIG),
-        GPU_DEVICES=list(base.GPU_DEVICES),
-        LOAD_BALANCE=dict(base.LOAD_BALANCE),
-        MEMORY_THRESHOLD=base.MEMORY_THRESHOLD,
-        AUTO_FALLBACK=base.AUTO_FALLBACK,
-        ENABLE_GPU=overrides.get("enable_gpu", base.ENABLE_GPU),
-        TARGET_TASKS_PER_MIN=base.TARGET_TASKS_PER_MIN,
-        VECTORIZATION_BATCH_SIZE=base.VECTORIZATION_BATCH_SIZE,
-        CACHE_TTL_SEC=base.CACHE_TTL_SEC,
-        MAX_WORKERS=overrides.get("max_workers", base.MAX_WORKERS),
-        MEMORY_LIMIT_MB=base.MEMORY_LIMIT_MB,
-        SUPPORTED_TF=tuple(base.SUPPORTED_TF),
-        DEFAULT_TIMEFRAME=base.DEFAULT_TIMEFRAME,
-        BASE_CURRENCY=base.BASE_CURRENCY,
-        FEE_RATE=base.FEE_RATE,
-        SLIPPAGE_RATE=base.SLIPPAGE_RATE,
-        INITIAL_CAPITAL=base.INITIAL_CAPITAL,
-        MAX_POSITIONS=base.MAX_POSITIONS,
-        POSITION_SIZE=base.POSITION_SIZE,
-        STOP_LOSS=base.STOP_LOSS,
-        TAKE_PROFIT=base.TAKE_PROFIT,
-        LOG_LEVEL=overrides.get("log_level", base.LOG_LEVEL),
-        MAX_FILE_SIZE_MB=base.MAX_FILE_SIZE_MB,
-        MAX_FILES=base.MAX_FILES,
-        LOG_ROTATE=base.LOG_ROTATE,
-        LOG_FORMAT=base.LOG_FORMAT,
-        READ_ONLY_DATA=base.READ_ONLY_DATA,
-        VALIDATE_PATHS=base.VALIDATE_PATHS,
-        ALLOW_ABSOLUTE_PATHS=base.ALLOW_ABSOLUTE_PATHS,
-        SECURITY_MAX_FILE_SIZE_MB=base.SECURITY_MAX_FILE_SIZE_MB,
-        DEFAULT_SIMULATIONS=base.DEFAULT_SIMULATIONS,
-        MAX_SIMULATIONS=base.MAX_SIMULATIONS,
-        DEFAULT_STEPS=base.DEFAULT_STEPS,
-        MC_SEED=base.MC_SEED,
-        CONFIDENCE_LEVELS=list(base.CONFIDENCE_LEVELS),
-        CACHE_ENABLE=base.CACHE_ENABLE,
-        CACHE_MAX_SIZE_MB=base.CACHE_MAX_SIZE_MB,
-        CACHE_TTL_SECONDS=base.CACHE_TTL_SECONDS,
-        CACHE_COMPRESSION=base.CACHE_COMPRESSION,
-        CACHE_STRATEGY=base.CACHE_STRATEGY,
-    )
+    mapping = {
+        "data_root": "DATA_ROOT",
+        "log_level": "LOG_LEVEL",
+        "enable_gpu": "ENABLE_GPU",
+        "max_workers": "MAX_WORKERS",
+    }
 
+    update_kwargs: Dict[str, Any] = {}
+    for key, field_name in mapping.items():
+        if key in overrides:
+            update_kwargs[field_name] = overrides[key]
 
-def _migrate_supported_timeframes(config: Dict[str, Any]) -> None:
-    if not isinstance(config, dict):
-        return
-    legacy_section = config.get("timeframes")
-    if not isinstance(legacy_section, dict):
-        return
-    supported = legacy_section.get("supported")
-    if not supported:
-        return
-
-    trading = config.get("trading")
-    if trading is None:
-        trading = {}
-        config["trading"] = trading
-    elif not isinstance(trading, dict):
-        return
-
-    trading.setdefault("supported_timeframes", list(supported))
-
-
+    return replace(DEFAULT_SETTINGS, **update_kwargs) if update_kwargs else DEFAULT_SETTINGS
 
 
 def get_settings(force_reload: bool = False) -> Settings:
@@ -470,7 +445,7 @@ def print_config(settings: Optional[Settings] = None) -> None:
     print(f"Max Workers: {cfg.MAX_WORKERS}")
 
     print("\n[TRADING]")
-    print(f"Supported TF: {cfg.SUPPORTED_TF}")
+    print(f"Supported TF: {cfg.SUPPORTED_TIMEFRAMES}")
     print(f"Default TF: {cfg.DEFAULT_TIMEFRAME}")
 
     print("\n[SECURITY]")

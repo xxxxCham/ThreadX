@@ -97,7 +97,7 @@ class Settings:
 
     @property
     def SUPPORTED_TIMEFRAMES(self) -> List[str]:
-        """Backward-compatible list alias for supported timeframes."""
+        """Compatibility alias returning supported timeframes as a list."""
         return list(self.SUPPORTED_TF)
 
 
