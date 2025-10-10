@@ -1,58 +1,54 @@
-"""
-ThreadX Indicators Layer - Phase 3
-==================================
+"""Public API surface for the indicator toolkit."""
 
-Module d'indicateurs techniques vectorisés avec support GPU multi-carte.
+from __future__ import annotations
 
-Modules principaux:
-- bollinger.py : Bandes de Bollinger vectorisées
-- atr.py : Average True Range vectorisé  
-- bank.py : Cache centralisé d'indicateurs
+from importlib import import_module
+from typing import Any
 
-Caractéristiques:
-- Vectorisation NumPy/CuPy pour performances optimales
-- Support GPU RTX 5090 (32GB) + RTX 2060 avec répartition 75%/25%
-- Cache intelligent avec TTL et checksums
-- Batch processing automatique (seuil: 100 paramètres)
-- Fallback CPU transparent
-"""
-
-from .bollinger import (
-    BollingerBands,
-    compute_bollinger_bands,
-    compute_bollinger_batch
-)
-
-from .atr import (
-    ATR, 
-    compute_atr,
-    compute_atr_batch
-)
-
-from .bank import (
-    IndicatorBank,
-    IndicatorSettings,
-    ensure_indicator,
-    force_recompute_indicator,
-    batch_ensure_indicators
-)
-
-__version__ = "3.0.0"
 __all__ = [
-    # Bollinger Bands
     "BollingerBands",
-    "compute_bollinger_bands", 
+    "BollingerSettings",
+    "compute_bollinger_bands",
     "compute_bollinger_batch",
-    
-    # ATR
     "ATR",
+    "ATRSettings",
     "compute_atr",
     "compute_atr_batch",
-    
-    # Bank
     "IndicatorBank",
-    "IndicatorSettings", 
+    "IndicatorSettings",
+    "batch_ensure_indicators",
     "ensure_indicator",
     "force_recompute_indicator",
-    "batch_ensure_indicators"
 ]
+
+_EXPORTS = {
+    "BollingerBands": ("threadx.indicators.bollinger", "BollingerBands"),
+    "BollingerSettings": ("threadx.indicators.bollinger", "BollingerSettings"),
+    "compute_bollinger_bands": ("threadx.indicators.bollinger", "compute_bollinger_bands"),
+    "compute_bollinger_batch": ("threadx.indicators.bollinger", "compute_bollinger_batch"),
+    "ATR": ("threadx.indicators.xatr", "ATR"),
+    "ATRSettings": ("threadx.indicators.xatr", "ATRSettings"),
+    "compute_atr": ("threadx.indicators.xatr", "compute_atr"),
+    "compute_atr_batch": ("threadx.indicators.xatr", "compute_atr_batch"),
+    "IndicatorBank": ("threadx.indicators.bank", "IndicatorBank"),
+    "IndicatorSettings": ("threadx.indicators.bank", "IndicatorSettings"),
+    "batch_ensure_indicators": ("threadx.indicators.bank", "batch_ensure_indicators"),
+    "ensure_indicator": ("threadx.indicators.bank", "ensure_indicator"),
+    "force_recompute_indicator": ("threadx.indicators.bank", "force_recompute_indicator"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    try:
+        module_name, attr_name = _EXPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module 'threadx.indicators' n'a pas d'attribut {name!r}") from exc
+
+    module = import_module(module_name)
+    value = getattr(module, attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(list(globals().keys()) + __all__)
