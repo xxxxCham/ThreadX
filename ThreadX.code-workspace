@@ -1,0 +1,391 @@
+﻿{
+	"folders": [
+		{
+			"name": "ThreadX - Main Project",
+			"path": "."
+		},
+		{
+			"name": "Source Code",
+			"path": "./src"
+		},
+		{
+			"name": "Tests",
+			"path": "./tests"
+		},
+		{
+			"name": "Benchmarks",
+			"path": "./benchmarks"
+		},
+		{
+			"name": "Configurations",
+			"path": "./configs"
+		},
+		{
+			"name": "Documentation",
+			"path": "./docs"
+		},
+		{
+			"name": "Artifacts & Reports",
+			"path": "./artifacts"
+		},
+		{
+			"name": "Applications",
+			"path": "./apps"
+		}
+	],
+	"settings": {
+		"python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
+		"python.terminal.activateEnvironment": true,
+		"python.terminal.activateEnvInCurrentTerminal": true,
+		"python.testing.pytestEnabled": true,
+		"python.testing.pytestArgs": [
+			"tests"
+		],
+		"python.testing.unittestEnabled": false,
+		"python.testing.autoTestDiscoverOnSaveEnabled": true,
+		"python.linting.enabled": true,
+		"python.linting.pylintEnabled": false,
+		"python.linting.flake8Enabled": true,
+		"python.linting.mypyEnabled": true,
+		"python.formatting.provider": "black",
+		"python.formatting.blackArgs": [
+			"--line-length=88"
+		],
+		"python.analysis.extraPaths": [
+			"./src"
+		],
+		"python.analysis.typeCheckingMode": "basic",
+		"python.analysis.autoImportCompletions": true,
+		"python.analysis.include": [
+			"src/**"
+		],
+		"python.analysis.exclude": [
+			"**/node_modules",
+			"**/__pycache__",
+			".git"
+		],
+		"files.associations": {
+			"*.toml": "toml",
+			"*.md": "markdown",
+			"*.py": "python"
+		},
+		"files.exclude": {
+			"**/__pycache__": true,
+			"**/*.pyc": true,
+			"**/.pytest_cache": true,
+			"**/.mypy_cache": true,
+			"**/node_modules": true,
+			"**/.git": false,
+			"**/.venv": false
+		},
+		"search.exclude": {
+			"**/__pycache__": true,
+			"**/*.pyc": true,
+			"**/.pytest_cache": true,
+			"**/.mypy_cache": true,
+			"**/node_modules": true
+		},
+		"editor.formatOnSave": true,
+		"editor.codeActionsOnSave": {
+			"source.organizeImports": "explicit"
+		},
+		"terminal.integrated.defaultProfile.windows": "PowerShell",
+		"terminal.integrated.cwd": "${workspaceFolder}",
+		"jupyter.defaultKernel": "Python 3",
+		"jupyter.interactiveWindow.textEditor.executeSelection": true,
+		"git.enableSmartCommit": true,
+		"git.confirmSync": false,
+		"git.autofetch": true,
+		"workbench.colorTheme": "Default Dark+",
+		"workbench.iconTheme": "vs-seti",
+		"explorer.confirmDelete": false,
+		"explorer.confirmDragAndDrop": false,
+		"problems.decorations.enabled": true,
+		"chat.agentSessionsViewLocation": "view",
+		"powershell.cwd": "ThreadX - Main Project"
+	},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "Install ThreadX",
+				"type": "shell",
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+				"args": [
+					"-m",
+					"pip",
+					"install",
+					"-e",
+					"."
+				],
+				"group": "build",
+				"presentation": {
+					"echo": true,
+					"reveal": "always",
+					"focus": false,
+					"panel": "shared"
+				},
+				"problemMatcher": []
+			},
+			{
+				"label": "Run Tests",
+				"type": "shell",
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+				"args": [
+					"-m",
+					"pytest",
+					"tests",
+					"-v"
+				],
+				"group": "test",
+				"presentation": {
+					"echo": true,
+					"reveal": "always",
+					"focus": false,
+					"panel": "shared"
+				},
+				"problemMatcher": []
+			},
+			{
+				"label": "Run Smoke Tests",
+				"type": "shell",
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+				"args": [
+					"smoke_tests.py"
+				],
+				"group": "test",
+				"presentation": {
+					"echo": true,
+					"reveal": "always",
+					"focus": false,
+					"panel": "shared"
+				},
+				"problemMatcher": []
+			},
+			{
+				"label": "Run Benchmarks - Indicators",
+				"type": "shell",
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+				"args": [
+					"-m",
+					"threadx.benchmarks.run_indicators"
+				],
+				"group": "build",
+				"presentation": {
+					"echo": true,
+					"reveal": "always",
+					"focus": false,
+					"panel": "shared"
+				},
+				"problemMatcher": []
+			},
+			{
+				"label": "Run Benchmarks - Backtests",
+				"type": "shell",
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+				"args": [
+					"-m",
+					"threadx.benchmarks.run_backtests",
+					"--configs",
+					"configs\\sweeps\\plan.toml"
+				],
+				"group": "build",
+				"presentation": {
+					"echo": true,
+					"reveal": "always",
+					"focus": false,
+					"panel": "shared"
+				},
+				"problemMatcher": []
+			},
+			{
+				"label": "Optimization Grid Sweep",
+				"type": "shell",
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+				"args": [
+					"-m",
+					"threadx.optimization.run",
+					"--config",
+					"configs\\sweeps\\bb_atr_grid.toml"
+				],
+				"group": "build",
+				"presentation": {
+					"echo": true,
+					"reveal": "always",
+					"focus": false,
+					"panel": "shared"
+				},
+				"problemMatcher": []
+			},
+			{
+				"label": "Optimization Monte Carlo",
+				"type": "shell",
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+				"args": [
+					"-m",
+					"threadx.optimization.run",
+					"--config",
+					"configs\\sweeps\\bb_atr_montecarlo.toml"
+				],
+				"group": "build",
+				"presentation": {
+					"echo": true,
+					"reveal": "always",
+					"focus": false,
+					"panel": "shared"
+				},
+				"problemMatcher": []
+			},
+			{
+				"label": "Clean Cache",
+				"type": "shell",
+				"command": "Remove-Item",
+				"args": [
+					"-Recurse",
+					"-Force",
+					"**/__pycache__",
+					"**/*.pyc",
+					"**/.pytest_cache",
+					"**/.mypy_cache"
+				],
+				"options": {
+					"shell": {
+						"executable": "powershell.exe"
+					}
+				},
+				"group": "build",
+				"presentation": {
+					"echo": true,
+					"reveal": "silent",
+					"focus": false,
+					"panel": "shared"
+				}
+			},
+			{
+				"label": "Start Streamlit App",
+				"type": "shell",
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+				"args": [
+					"-m",
+					"streamlit",
+					"run",
+					"apps/streamlit/app.py"
+				],
+				"group": "build",
+				"presentation": {
+					"echo": true,
+					"reveal": "always",
+					"focus": true,
+					"panel": "dedicated"
+				},
+				"isBackground": true,
+				"problemMatcher": []
+			},
+			{
+				"label": "Start TkInter App",
+				"type": "shell",
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+				"args": [
+					"apps/tkinter/run_tkinter.py"
+				],
+				"group": "build",
+				"presentation": {
+					"echo": true,
+					"reveal": "always",
+					"focus": true,
+					"panel": "dedicated"
+				},
+				"problemMatcher": []
+			}
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Debug ThreadX Tests",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "pytest",
+				"args": [
+					"tests",
+					"-v",
+					"-s"
+				],
+				"console": "integratedTerminal",
+				"cwd": "${workspaceFolder}",
+				"python": "${workspaceFolder}/.venv/Scripts/python.exe"
+			},
+			{
+				"name": "Debug Smoke Tests",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${workspaceFolder}/smoke_tests.py",
+				"console": "integratedTerminal",
+				"cwd": "${workspaceFolder}",
+				"python": "${workspaceFolder}/.venv/Scripts/python.exe"
+			},
+			{
+				"name": "Debug Optimization Run",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "threadx.optimization.run",
+				"args": [
+					"--config",
+					"configs/sweeps/bb_atr_grid.toml",
+					"--dry-run"
+				],
+				"console": "integratedTerminal",
+				"cwd": "${workspaceFolder}",
+				"python": "${workspaceFolder}/.venv/Scripts/python.exe"
+			},
+			{
+				"name": "Debug Benchmarks",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "threadx.benchmarks.run_indicators",
+				"console": "integratedTerminal",
+				"cwd": "${workspaceFolder}",
+				"python": "${workspaceFolder}/.venv/Scripts/python.exe"
+			},
+			{
+				"name": "Debug Streamlit App",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "streamlit",
+				"args": [
+					"run",
+					"apps/streamlit/app.py"
+				],
+				"console": "integratedTerminal",
+				"cwd": "${workspaceFolder}",
+				"python": "${workspaceFolder}/.venv/Scripts/python.exe"
+			}
+		]
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-python.python",
+			"ms-python.vscode-pylance",
+			"ms-python.black-formatter",
+			"ms-python.flake8",
+			"ms-python.mypy-type-checker",
+			"ms-toolsai.jupyter",
+			"ms-toolsai.jupyter-keymap",
+			"ms-toolsai.jupyter-renderers",
+			"ms-vscode.powershell",
+			"tamasfe.even-better-toml",
+			"yzhang.markdown-all-in-one",
+			"ms-vscode.vscode-json",
+			"redhat.vscode-yaml",
+			"streetsidesoftware.code-spell-checker",
+			"ms-vscode.test-adapter-converter",
+			"littlefoxteam.vscode-python-test-adapter",
+			"gruntfuggly.todo-tree",
+			"formulahendry.code-runner",
+			"ms-vscode-remote.remote-containers",
+			"github.copilot",
+			"github.copilot-chat"
+		]
+	}
+}
