@@ -29,7 +29,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -817,3 +817,4 @@ Examples:
 
 if __name__ == "__main__":
     sys.exit(main())
+
