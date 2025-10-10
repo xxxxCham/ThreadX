@@ -1,10 +1,14 @@
 """Configuration-related exceptions for ThreadX."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional
 
 
+@dataclass(frozen=True)
 class ConfigurationError(Exception):
+    """Domain-specific exception carrying contextual information."""
+
     reason: str
     path: Optional[str] = None
     details: Optional[str] = None

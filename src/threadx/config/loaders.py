@@ -44,7 +44,6 @@ class TOMLConfigLoader:
         self._validated_paths: Dict[str, str] = {}
         self.config_path = self._resolve_config_path(config_path)
         self.config_data = load_config_dict(self.config_path)
-        self._validated_paths: Dict[str, str] = {}
         self._migrate_legacy_config()
 
     def _ensure_internal_state(self) -> None:
@@ -106,7 +105,7 @@ class TOMLConfigLoader:
         if isinstance(legacy_timeframes, dict):
             supported = legacy_timeframes.get("supported")
             if isinstance(supported, (list, tuple)):
-                if trading_section is None:
+                if trading_section is None or not isinstance(trading_section, dict):
                     trading_section = {}
                     self.config_data["trading"] = trading_section
                 if "supported_timeframes" not in trading_section:
@@ -117,7 +116,6 @@ class TOMLConfigLoader:
         self._migrate_legacy_config()
         errors: List[str] = []
         self._validated_paths.clear()
-        self._migrate_legacy_config()
         required_sections = ["paths", "gpu", "performance", "trading"]
         for section in required_sections:
             if section not in self.config_data:
@@ -152,7 +150,7 @@ class TOMLConfigLoader:
                 continue
             resolved_paths[key] = value.format(data_root=data_root)
 
-        should_create = not check_only and not validate_paths
+        should_create = not check_only and not should_validate
         if should_create:
             for path_value in resolved_paths.values():
                 try:
@@ -213,13 +211,6 @@ class TOMLConfigLoader:
             if not isinstance(value, (int, float)) or value <= 0:
                 errors.append(f"performance.{key} must be a positive number")
         return errors
-
-    def _migrate_legacy_config(self) -> None:
-        self._ensure_internal_state()
-        if not isinstance(self.config_data, dict):
-            self.config_data = {}
-            return
-        _migrate_supported_timeframes(self.config_data)
 
     # ------------------------------------------------------------------
     # Settings construction
@@ -319,20 +310,6 @@ class TOMLConfigLoader:
             CACHE_STRATEGY=cache.get("strategy", defaults.CACHE_STRATEGY),
         )
 
-    def _migrate_legacy_config(self) -> None:
-        self._ensure_internal_state()
-        trading_section = self.config_data.get("trading")
-        legacy_timeframes = self.config_data.get("timeframes")
-        if (
-            isinstance(legacy_timeframes, dict)
-            and "supported" in legacy_timeframes
-            and (not isinstance(trading_section, dict) or "supported_timeframes" not in trading_section)
-        ):
-            if not isinstance(trading_section, dict):
-                trading_section = {}
-                self.config_data["trading"] = trading_section
-            trading_section["supported_timeframes"] = list(legacy_timeframes["supported"])
-
     def load_config(self, cli_overrides: Optional[Dict[str, Any]] = None) -> Settings:
         overrides = cli_overrides or {}
         return self.create_settings(**overrides)
@@ -347,9 +324,9 @@ class TOMLConfigLoader:
         parser.add_argument("--data-root", dest="data_root", type=str)
         parser.add_argument("--log-level", dest="log_level", type=str)
         parser.add_argument("--max-workers", dest="max_workers", type=int)
-        parser.add_argument("--enable-gpu", dest="enable_gpu", action="store_true")
-        parser.add_argument("--disable-gpu", dest="disable_gpu", action="store_true")
-        parser.add_argument("--max-workers", dest="max_workers", type=int)
+        gpu_group = parser.add_mutually_exclusive_group()
+        gpu_group.add_argument("--enable-gpu", dest="enable_gpu", action="store_true")
+        gpu_group.add_argument("--disable-gpu", dest="disable_gpu", action="store_true")
         parser.add_argument("--print-config", action="store_true")
         return parser
 
@@ -372,8 +349,6 @@ def load_settings(config_path: Union[str, Path] = "paths.toml", cli_args: Option
         overrides["enable_gpu"] = True
     if args.disable_gpu:
         overrides["enable_gpu"] = False
-    if getattr(args, "max_workers", None) is not None:
-        overrides["max_workers"] = args.max_workers
 
     resolved_config = args.config or config_path
     try:
