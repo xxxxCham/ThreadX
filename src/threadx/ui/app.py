@@ -42,7 +42,7 @@ try:
     from threadx.utils.log import get_logger, setup_logging_once
     from threadx.data.ingest import IngestionManager
     from threadx.indicators.bank import IndicatorBank
-    from threadx.backtest.performance import PerformanceCalculator
+    from threadx.backtest.performance import PerformanceMetrics
     from threadx.backtest.engine import BacktestEngine, create_engine
     from threadx.optimization import create_optimization_ui
     from .downloads import create_downloads_page
@@ -110,7 +110,7 @@ except ImportError:
 
     # Utilisation du PerformanceCalculator existant ou fallback
     try:
-        from threadx.backtest.performance import PerformanceCalculator
+        from threadx.backtest.performance import PerformanceMetrics
     except ImportError:
 
         class PerformanceCalculator:
@@ -2369,3 +2369,4 @@ def run_app() -> None:
 
 if __name__ == "__main__":
     run_app()
+

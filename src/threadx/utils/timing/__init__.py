@@ -400,3 +400,11 @@ def benchmark_operation(
         "max": float(np.max(times)),
         "runs": len(times),
     }
+# Back-compat export
+try:
+    from threadx.backtest.performance import PerformanceMetrics  # noqa: F401
+except Exception:
+    class PerformanceMetrics:  # type: ignore
+        def __init__(self, *a, **k): pass
+        def start(self, *a, **k): pass
+        def stop(self, *a, **k): pass
