@@ -7,8 +7,8 @@ from typing import Optional
 
 @dataclass
 class ConfigurationError(Exception):
-    path: Optional[str]
     reason: str
+    path: Optional[str] = None
     details: Optional[str] = None
 
     def __post_init__(self) -> None:  # pragma: no cover - dataclass validation trivial
