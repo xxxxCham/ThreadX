@@ -24,40 +24,49 @@ Améliorations vs TradXPro:
 
 from .model import (
     # Types de données
-    Trade, TradeDict,
-    RunStats, RunStatsDict,
-    
+    Trade,
+    TradeDict,
+    RunStats,
+    RunStatsDict,
     # Protocol interface
     Strategy,
-    
     # JSON utilities
     ThreadXJSONEncoder,
-    save_run_results, load_run_results,
-    
+    save_run_results,
+    load_run_results,
     # Validation
-    validate_ohlcv_dataframe, validate_strategy_params
+    validate_ohlcv_dataframe,
+    validate_strategy_params,
 )
 
 from .bb_atr import (
     # Paramètres et implémentation
-    BBAtrParams, BBAtrStrategy,
-    
+    BBAtrParams,
+    BBAtrStrategy,
     # Fonctions de convenance
-    generate_signals, backtest, create_default_params
+    generate_signals,
+    backtest,
+    create_default_params,
 )
 
 __version__ = "4.0.0"
 
 __all__ = [
     # Model exports
-    'Trade', 'TradeDict',
-    'RunStats', 'RunStatsDict',
-    'Strategy',
-    'ThreadXJSONEncoder',
-    'save_run_results', 'load_run_results',
-    'validate_ohlcv_dataframe', 'validate_strategy_params',
-    
+    "Trade",
+    "TradeDict",
+    "RunStats",
+    "RunStatsDict",
+    "Strategy",
+    "ThreadXJSONEncoder",
+    "save_run_results",
+    "load_run_results",
+    "validate_ohlcv_dataframe",
+    "validate_strategy_params",
     # BB+ATR Strategy exports
-    'BBAtrParams', 'BBAtrStrategy',
-    'generate_signals', 'backtest', 'create_default_params'
+    "BBAtrParams",
+    "BBAtrStrategy",
+    "generate_signals",
+    "backtest",
+    "create_default_params",
 ]

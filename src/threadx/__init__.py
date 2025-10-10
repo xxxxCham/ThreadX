@@ -13,13 +13,13 @@ from .config import (
     get_settings,
     load_settings,
     ConfigurationError,
-    PathValidationError
+    PathValidationError,
 )
 
 __all__ = [
     "Settings",
-    "get_settings", 
+    "get_settings",
     "load_settings",
     "ConfigurationError",
-    "PathValidationError"
+    "PathValidationError",
 ]

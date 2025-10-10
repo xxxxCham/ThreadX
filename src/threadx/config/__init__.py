@@ -1,4 +1,5 @@
 """ThreadX configuration package."""
+
 from .settings import Settings
 from .errors import ConfigurationError, PathValidationError
 from .loaders import (

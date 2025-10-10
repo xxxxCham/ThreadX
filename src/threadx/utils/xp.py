@@ -1,11 +1,22 @@
 """Backend-agnostic array helpers with lazy CuPy support."""
+
 from __future__ import annotations
 
 import importlib
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Callable, Iterable, Mapping, MutableMapping, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 
@@ -145,7 +156,9 @@ def configure_backend(preferred: str) -> None:
     """Force a backend ("numpy", "cupy", or "auto")."""
     valid = {"numpy", "cupy", "auto"}
     if preferred not in valid:
-        raise ValueError(f"Invalid backend '{preferred}'. Expected one of {sorted(valid)}")
+        raise ValueError(
+            f"Invalid backend '{preferred}'. Expected one of {sorted(valid)}"
+        )
 
     global _BACKEND_OVERRIDE
     _BACKEND_OVERRIDE = None if preferred == "auto" else preferred
@@ -185,7 +198,9 @@ def ascupy(array: Any, dtype: Optional[Any] = None) -> Any:
     return module.asarray(array, dtype=dtype)
 
 
-def ensure_array_type(array: Any, dtype: Optional[Any] = None, *, xp_module: Any = None) -> Any:
+def ensure_array_type(
+    array: Any, dtype: Optional[Any] = None, *, xp_module: Any = None
+) -> Any:
     backend = xp_module or get_xp()
     if backend is np:
         return np.asarray(array, dtype=dtype)
@@ -235,7 +250,9 @@ def _elapsed_gpu_time(module: Any, start: Any, end: Any, stream: Any) -> float:
     return module.cuda.get_elapsed_time(start, end) / 1000.0
 
 
-def benchmark_operation(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Tuple[Any, float]:
+def benchmark_operation(
+    func: Callable[..., Any], *args: Any, **kwargs: Any
+) -> Tuple[Any, float]:
     """Execute *func* and return (result, elapsed_seconds)."""
     backend = get_xp()
     if backend is np:
@@ -278,7 +295,9 @@ def get_array_info(array: Any) -> Mapping[str, Any]:
         shape = getattr(array, "shape", ())
         dtype = getattr(array, "dtype", "unknown")
         size = int(getattr(array, "size", module.asnumpy(array).size))
-        memory_mb = float(getattr(array, "nbytes", module.asnumpy(array).nbytes)) / (1024**2)
+        memory_mb = float(getattr(array, "nbytes", module.asnumpy(array).nbytes)) / (
+            1024**2
+        )
         return {
             "backend": backend,
             "device": device,

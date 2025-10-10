@@ -6,7 +6,7 @@ Module d'indicateurs techniques vectorisés avec support GPU multi-carte.
 
 Modules principaux:
 - bollinger.py : Bandes de Bollinger vectorisées
-- atr.py : Average True Range vectorisé  
+- atr.py : Average True Range vectorisé
 - bank.py : Cache centralisé d'indicateurs
 
 Caractéristiques:
@@ -17,42 +17,32 @@ Caractéristiques:
 - Fallback CPU transparent
 """
 
-from .bollinger import (
-    BollingerBands,
-    compute_bollinger_bands,
-    compute_bollinger_batch
-)
+from .bollinger import BollingerBands, compute_bollinger_bands, compute_bollinger_batch
 
-from .atr import (
-    ATR, 
-    compute_atr,
-    compute_atr_batch
-)
+from .xatr import ATR, compute_atr, compute_atr_batch
 
 from .bank import (
     IndicatorBank,
     IndicatorSettings,
     ensure_indicator,
     force_recompute_indicator,
-    batch_ensure_indicators
+    batch_ensure_indicators,
 )
 
 __version__ = "3.0.0"
 __all__ = [
     # Bollinger Bands
     "BollingerBands",
-    "compute_bollinger_bands", 
+    "compute_bollinger_bands",
     "compute_bollinger_batch",
-    
     # ATR
     "ATR",
     "compute_atr",
     "compute_atr_batch",
-    
     # Bank
     "IndicatorBank",
-    "IndicatorSettings", 
+    "IndicatorSettings",
     "ensure_indicator",
     "force_recompute_indicator",
-    "batch_ensure_indicators"
+    "batch_ensure_indicators",
 ]

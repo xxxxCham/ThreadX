@@ -16,7 +16,7 @@ from .device_manager import (
     get_device_by_id,
     check_nccl_support,
     xp,
-    DeviceInfo
+    DeviceInfo,
 )
 
 from .multi_gpu import (
@@ -25,28 +25,26 @@ from .multi_gpu import (
     GPUMemoryError,
     ShapeMismatchError,
     NonVectorizableFunctionError,
-    get_default_manager
+    get_default_manager,
 )
 
 __all__ = [
     # Device utilities
-    'is_available',
-    'list_devices',
-    'get_device_by_name',
-    'get_device_by_id',
-    'check_nccl_support',
-    'xp',
-    'DeviceInfo',
-    
+    "is_available",
+    "list_devices",
+    "get_device_by_name",
+    "get_device_by_id",
+    "check_nccl_support",
+    "xp",
+    "DeviceInfo",
     # Multi-GPU manager
-    'MultiGPUManager',
-    'get_default_manager',
-    
+    "MultiGPUManager",
+    "get_default_manager",
     # Exceptions
-    'DeviceUnavailableError',
-    'GPUMemoryError',
-    'ShapeMismatchError',
-    'NonVectorizableFunctionError'
+    "DeviceUnavailableError",
+    "GPUMemoryError",
+    "ShapeMismatchError",
+    "NonVectorizableFunctionError",
 ]
 
 __version__ = "5.0.0"

@@ -29,10 +29,10 @@ Integration:
 
 Usage:
     from threadx.backtest.performance import summarize, plot_drawdown
-    
+
     # Calculate comprehensive metrics
     metrics = summarize(trades_df, returns_series, initial_capital=10000)
-    
+
     # Generate drawdown visualization
     plot_path = plot_drawdown(equity_series, save_path=Path("./reports/dd.png"))
 """
@@ -42,22 +42,17 @@ from threadx.backtest.performance import (
     equity_curve,
     max_drawdown,
     drawdown_series,
-    
     # Risk-adjusted metrics
     sharpe_ratio,
     sortino_ratio,
-    
     # Trade-based metrics
     profit_factor,
     win_rate,
     expectancy,
-    
     # Comprehensive analysis
     summarize,
-    
     # Visualization
     plot_drawdown,
-    
     # GPU capability detection
     HAS_CUPY,
     xp,
@@ -65,26 +60,22 @@ from threadx.backtest.performance import (
 
 __all__ = [
     # Core functions
-    'equity_curve',
-    'max_drawdown', 
-    'drawdown_series',
-    
+    "equity_curve",
+    "max_drawdown",
+    "drawdown_series",
     # Risk metrics
-    'sharpe_ratio',
-    'sortino_ratio',
-    
+    "sharpe_ratio",
+    "sortino_ratio",
     # Trade metrics
-    'profit_factor',
-    'win_rate',
-    'expectancy',
-    
+    "profit_factor",
+    "win_rate",
+    "expectancy",
     # Integration
-    'summarize',
-    'plot_drawdown',
-    
+    "summarize",
+    "plot_drawdown",
     # Utilities
-    'HAS_CUPY',
-    'xp',
+    "HAS_CUPY",
+    "xp",
 ]
 
 # Module metadata

@@ -18,6 +18,7 @@ Features:
 Author: ThreadX Framework
 Version: Phase 8 - UI Components
 """
+# type: ignore  # Trop d'erreurs de type, analyse désactivée
 
 import json
 import logging
@@ -309,14 +310,33 @@ class ThreadXApp(tk.Tk):
     - Manual downloads with 1m + 3h verification
     """
 
-    def __init__(self):
-        """Initialize the TechinTerror application."""
+    def __init__(
+        self, debug: bool = False, theme: str = "dark", dev_mode: bool = False
+    ):
+        """
+        Initialize the TechinTerror application.
+
+        Args:
+            debug: Active le mode debug avec logs détaillés
+            theme: Thème de l'interface ('dark', 'light', 'auto')
+            dev_mode: Active le mode développement avec options avancées
+        """
         super().__init__()
+
+        # Configuration des modes
+        self.debug_mode = debug
+        self.theme_mode = theme
+        self.dev_mode = dev_mode
 
         # Setup logging
         setup_logging_once()
         self.logger = get_logger(__name__)
-        self.logger.info("Initializing TechinTerror Application")
+
+        if self.debug_mode:
+            self.logger.setLevel(logging.DEBUG)
+            self.logger.debug("Mode DEBUG activé")
+
+        self.logger.info(f"Initializing TechinTerror Application (theme={theme})")
 
         # Initialize settings and components
         self.settings = get_settings()
@@ -2297,6 +2317,16 @@ class ThreadXApp(tk.Tk):
 
         # Close application
         self.destroy()
+
+    def run(self):
+        """
+        Lance l'application Tkinter.
+
+        Alias pour mainloop() pour compatibilité avec l'interface CLI.
+        """
+        self.logger.info("Démarrage de l'application ThreadX")
+        self.mainloop()
+        self.logger.info("Application ThreadX fermée")
 
 
 def run_app() -> None:

@@ -4,8 +4,8 @@ ThreadX Indicators GPU Integration - Phase 5
 
 Intégration de la distribution multi-GPU avec la couche d'indicateurs.
 
-Permet d'accélérer les calculs d'indicateurs techniques (Bollinger Bands, ATR, etc.)
-en utilisant automatiquement la répartition GPU/CPU optimale.
+Permet d'accélérer les calculs d'indicateurs techniques (Bollinger Bands,
+ATR, etc.) en utilisant automatiquement la répartition GPU/CPU optimale.
 
 Usage:
     >>> # Calcul distribué d'indicateurs
@@ -17,25 +17,18 @@ Usage:
     ... )
 """
 
-import logging
 import time
-import json
-from datetime import datetime
-from pathlib import Path
-from typing import Tuple, Optional, Union, Dict, Any, List
+from typing import Tuple, Optional, Dict, Any, Callable
 import numpy as np
 import pandas as pd
 
 from threadx.utils.log import get_logger
 from threadx.utils.gpu import get_default_manager, MultiGPUManager
 from threadx.utils.gpu.profile_persistence import (
-    safe_read_json,
-    safe_write_json,
     stable_hash,
     update_gpu_threshold_entry,
     get_gpu_thresholds,
 )
-from threadx.config.settings import S
 
 logger = get_logger(__name__)
 
@@ -64,36 +57,17 @@ class GPUAcceleratedIndicatorBank:
             f"{len(self.gpu_manager._gpu_devices)} GPU(s)"
         )
 
-    def _should_use_gpu(self, data_size: int, force_gpu: bool = False) -> bool:
-        """
-        Détermine si le GPU doit être utilisé pour ce calcul.
-
-        Args:
-            data_size: Taille des données
-            force_gpu: Force l'utilisation GPU même si pas optimal
-
-        Returns:
-            True si GPU recommandé
-        """
-        if force_gpu:
-            return len(self.gpu_manager._gpu_devices) > 0
-
-        # Critères automatiques
-        has_gpu = len(self.gpu_manager._gpu_devices) > 0
-        sufficient_data = data_size >= self.min_samples_for_gpu
-
-        return has_gpu and sufficient_data
-
     def _should_use_gpu_dynamic(
         self,
         indicator: str,
         n_rows: int,
         params: Dict[str, Any],
-        dtype=np.float32,
+        dtype: Any = np.float32,  # Any pour accepter DtypeObj pandas
         force_gpu: bool = False,
     ) -> bool:
         """
-        Détermine l'utilisation GPU avec seuil dynamique basé sur profil historique.
+        Détermine l'utilisation GPU avec seuil dynamique
+        basé sur profil historique.
 
         Args:
             indicator: Nom de l'indicateur (ex: 'bollinger', 'atr')
@@ -120,7 +94,12 @@ class GPUAcceleratedIndicatorBank:
             for k, v in params.items()
             if k in ["period", "window", "std", "std_dev"]
         }
-        signature = f"{indicator}|N={n_rows}|dtype={dtype.__name__}|params={stable_hash(params_major)}"
+        dtype_name = dtype.__name__ if hasattr(dtype, "__name__") else str(dtype)
+        signature = (
+            f"{indicator}|N={n_rows}|"
+            f"dtype={dtype_name}|"
+            f"params={stable_hash(params_major)}"
+        )
 
         # Récupération des seuils GPU
         thresholds = get_gpu_thresholds()
@@ -140,7 +119,7 @@ class GPUAcceleratedIndicatorBank:
         # Règles de décision
         if n_rows < defaults["n_min_gpu"]:
             logger.debug(
-                f"N={n_rows} < seuil minimal {defaults['n_min_gpu']}, utilisant CPU"
+                f"N={n_rows} < seuil minimal " f"{defaults['n_min_gpu']}, utilisant CPU"
             )
             return False
 
@@ -170,11 +149,91 @@ class GPUAcceleratedIndicatorBank:
 
         return use_gpu
 
+    def _dispatch_indicator(
+        self,
+        indicator_name: str,
+        data: pd.DataFrame,
+        params: Dict[str, Any],
+        use_gpu: Optional[bool],
+        gpu_func: Callable,
+        cpu_func: Callable,
+        input_cols: Optional[str] = None,
+        extract_arrays: bool = True,
+    ) -> Any:
+        """
+        Dispatch automatique GPU/CPU pour un indicateur.
+
+        Centralise la logique de décision GPU/CPU et l'extraction de données
+        pour éviter la duplication de code entre indicateurs.
+
+        Args:
+            indicator_name: Nom de l'indicateur ('bollinger', 'atr', 'rsi')
+            data: DataFrame source
+            params: Paramètres de l'indicateur (period, std_dev, etc.)
+            use_gpu: None (auto), True (force GPU), False (force CPU)
+            gpu_func: Fonction GPU à appeler (signature: func(arrays, ...))
+            cpu_func: Fonction CPU à appeler (signature: func(arrays, ...))
+            input_cols: Colonne(s) à extraire (str ou None pour OHLC)
+            extract_arrays: Si True, extrait et convertit les colonnes en
+                          ndarray
+
+        Returns:
+            Résultat de l'indicateur (pd.Series ou Tuple[pd.Series])
+
+        Example:
+            >>> return self._dispatch_indicator(
+            ...     'bollinger',
+            ...     data,
+            ...     {'period': 20, 'std_dev': 2.0},
+            ...     use_gpu,
+            ...     self._bollinger_bands_gpu,
+            ...     self._bollinger_bands_cpu,
+            ...     input_cols='close'
+            ... )
+        """
+        data_size = len(data)
+
+        # Détermination du dtype pour le profiling
+        if input_cols:
+            dtype = data[input_cols].dtype
+        else:
+            # Pour OHLC, utiliser dtype de 'close'
+            dtype = data["close"].dtype
+
+        # Décision dynamique CPU vs GPU basée sur profil historique
+        if use_gpu is None:
+            # Décision automatique basée sur profils
+            use_gpu_decision = self._should_use_gpu_dynamic(
+                indicator_name, data_size, params, dtype
+            )
+        else:
+            # Force explicite
+            use_gpu_decision = use_gpu
+
+        # Extraction et conversion des données si nécessaire
+        if extract_arrays:
+            if input_cols:
+                # Extraction d'une seule colonne
+                arrays = np.asarray(data[input_cols].values)
+            else:
+                # Pas de colonnes spécifiées: passer le DataFrame
+                arrays = data
+        else:
+            # Pas d'extraction: passer directement le DataFrame
+            arrays = data
+
+        # Dispatch vers GPU ou CPU
+        if use_gpu_decision:
+            return gpu_func(arrays)
+        else:
+            return cpu_func(arrays)
+
     def _micro_probe(
         self, indicator: str, n_rows: int, params: Dict[str, Any], n_samples: int = 3
     ) -> Tuple[float, float]:
         """
-        Exécute un micro-benchmark pour comparer CPU vs GPU sur un échantillon réduit.
+        Exécute un micro-benchmark pour comparer CPU vs GPU
+        sur un échantillon réduit.
 
         Args:
             indicator: Nom de l'indicateur
@@ -187,7 +246,8 @@ class GPUAcceleratedIndicatorBank:
         """
         logger.info(f"Micro-probe {indicator} (N={n_rows}, params={params})")
 
-        # Taille d'échantillon: min(n_rows, 100000) pour éviter les benchmarks trop longs
+        # Taille d'échantillon: min(n_rows, 100000)
+        # pour éviter les benchmarks trop longs
         sample_size = min(n_rows, 100000)
 
         # Données de test adaptées à l'indicateur
@@ -245,7 +305,8 @@ class GPUAcceleratedIndicatorBank:
         else:
             # Indicateur non pris en charge: tests génériques
             logger.warning(
-                f"Micro-probe pour '{indicator}' non implémenté, utilisant benchmark générique"
+                f"Micro-probe pour '{indicator}' non implémenté, "
+                f"utilisant benchmark générique"
             )
             return self._generic_micro_probe(sample_size)
 
@@ -258,7 +319,9 @@ class GPUAcceleratedIndicatorBank:
             _ = cpu_func()
             _ = gpu_func()
         except Exception as e:
-            logger.warning(f"Erreur préchauffage: {e}, utilisant benchmark générique")
+            logger.warning(
+                f"Erreur préchauffage: {e}, " f"utilisant benchmark générique"
+            )
             return self._generic_micro_probe(sample_size)
 
         # Mesure CPU
@@ -331,41 +394,14 @@ class GPUAcceleratedIndicatorBank:
         return cpu_ms, gpu_ms
 
     def update_indicator_methods(self):
-        """Met à jour les méthodes d'indicateurs pour utiliser la décision dynamique."""
-        # Cette méthode pourrait être utilisée pour appliquer des patchs aux méthodes
-        # d'indicateurs existantes pour utiliser _should_use_gpu_dynamic
-        logger.debug("Activation de la décision GPU dynamique pour les indicateurs")
-
-
-def make_profile_key(
-    indicator_name: str, params: Dict[str, Any], data_size: int = None
-) -> str:
-    """
-    Génère une clé de profil stable pour un indicateur et ses paramètres.
-
-    Args:
-        indicator_name: Nom de l'indicateur
-        params: Paramètres de l'indicateur
-        data_size: Taille des données (facultatif)
-
-    Returns:
-        Clé de profil unique et stable
-
-    Example:
-        >>> make_profile_key("bollinger", {"period": 20, "std": 2.0})
-        'bollinger_period:20_std:2.0'
-    """
-    # Tri des paramètres pour ordre stable
-    sorted_params = sorted(params.items())
-
-    # Construction de la clé
-    param_str = "_".join(f"{k}:{v}" for k, v in sorted_params)
-
-    if data_size is not None:
-        # Ajouter la taille des données si fournie
-        return f"{indicator_name}_N:{data_size}_{param_str}"
-    else:
-        return f"{indicator_name}_{param_str}"
+        """
+        Met à jour les méthodes d'indicateurs pour utiliser
+        la décision dynamique.
+        """
+        # Cette méthode pourrait être utilisée pour appliquer
+        # des patchs aux méthodes d'indicateurs existantes pour
+        # utiliser _should_use_gpu_dynamic
+        logger.debug("Activation de la décision GPU dynamique " "pour les indicateurs")
 
     def bollinger_bands(
         self,
@@ -395,29 +431,23 @@ def make_profile_key(
         if price_col not in data.columns:
             raise ValueError(f"Colonne '{price_col}' non trouvée dans les données")
 
-        data_size = len(data)
-
-        # Décision dynamique CPU vs GPU basée sur profil historique
+        # Utilisation du dispatcher centralisé
         params = {"period": period, "std_dev": std_dev}
-        dtype = data[price_col].dtype
 
-        if use_gpu is None:
-            # Décision automatique basée sur profils
-            use_gpu_decision = self._should_use_gpu_dynamic(
-                "bollinger", data_size, params, dtype
-            )
-        else:
-            # Force explicite
-            use_gpu_decision = use_gpu
-
-        prices = data[price_col].values
-
-        if use_gpu_decision:
-            # Version GPU distribuée
-            return self._bollinger_bands_gpu(prices, period, std_dev, data.index)
-        else:
-            # Version CPU classique
-            return self._bollinger_bands_cpu(prices, period, std_dev, data.index)
+        return self._dispatch_indicator(
+            indicator_name="bollinger",
+            data=data,
+            params=params,
+            use_gpu=use_gpu,
+            gpu_func=lambda prices: self._bollinger_bands_gpu(
+                prices, period, std_dev, data.index
+            ),
+            cpu_func=lambda prices: self._bollinger_bands_cpu(
+                prices, period, std_dev, data.index
+            ),
+            input_cols=price_col,
+            extract_arrays=True,
+        )
 
     def _bollinger_bands_gpu(
         self, prices: np.ndarray, period: int, std_dev: float, index: pd.Index
@@ -476,7 +506,7 @@ def make_profile_key(
 
             elapsed = (pd.Timestamp.now() - start_time).total_seconds()
             logger.info(
-                f"Bollinger Bands GPU: {len(prices)} échantillons en {elapsed:.3f}s"
+                f"Bollinger Bands GPU: {len(prices)} échantillons " f"en {elapsed:.3f}s"
             )
 
         except Exception as e:
@@ -511,7 +541,10 @@ def make_profile_key(
         return upper_band, middle_band, lower_band
 
     def atr(
-        self, data: pd.DataFrame, period: int = 14, use_gpu: Optional[bool] = None
+        self,
+        data: pd.DataFrame,
+        period: int = 14,
+        use_gpu: Optional[bool] = None,
     ) -> pd.Series:
         """
         Calcul GPU de l'Average True Range (ATR).
@@ -537,25 +570,19 @@ def make_profile_key(
         if missing_cols:
             raise ValueError(f"Colonnes manquantes: {missing_cols}")
 
-        data_size = len(data)
-
-        # Décision dynamique CPU vs GPU basée sur profil historique
+        # Utilisation du dispatcher centralisé
         params = {"period": period}
-        dtype = data["close"].dtype
 
-        if use_gpu is None:
-            # Décision automatique basée sur profils
-            use_gpu_decision = self._should_use_gpu_dynamic(
-                "atr", data_size, params, dtype
-            )
-        else:
-            # Force explicite
-            use_gpu_decision = use_gpu
-
-        if use_gpu_decision:
-            return self._atr_gpu(data, period)
-        else:
-            return self._atr_cpu(data, period)
+        return self._dispatch_indicator(
+            indicator_name="atr",
+            data=data,
+            params=params,
+            use_gpu=use_gpu,
+            gpu_func=lambda df: self._atr_gpu(df, period),
+            cpu_func=lambda df: self._atr_cpu(df, period),
+            input_cols=None,  # Pas d'extraction, passe le DataFrame
+            extract_arrays=False,
+        )
 
     def _atr_gpu(self, data: pd.DataFrame, period: int) -> pd.Series:
         """Calcul ATR distribué sur GPU."""
@@ -644,27 +671,19 @@ def make_profile_key(
         if price_col not in data.columns:
             raise ValueError(f"Colonne '{price_col}' non trouvée")
 
-        data_size = len(data)
-
-        # Décision dynamique CPU vs GPU basée sur profil historique
+        # Utilisation du dispatcher centralisé
         params = {"period": period}
-        dtype = data[price_col].dtype
 
-        if use_gpu is None:
-            # Décision automatique basée sur profils
-            use_gpu_decision = self._should_use_gpu_dynamic(
-                "rsi", data_size, params, dtype
-            )
-        else:
-            # Force explicite
-            use_gpu_decision = use_gpu
-
-        prices = data[price_col].values
-
-        if use_gpu_decision:
-            return self._rsi_gpu(prices, period, data.index)
-        else:
-            return self._rsi_cpu(prices, period, data.index)
+        return self._dispatch_indicator(
+            indicator_name="rsi",
+            data=data,
+            params=params,
+            use_gpu=use_gpu,
+            gpu_func=lambda prices: self._rsi_gpu(prices, period, data.index),
+            cpu_func=lambda prices: self._rsi_cpu(prices, period, data.index),
+            input_cols=price_col,
+            extract_arrays=True,
+        )
 
     def _rsi_gpu(self, prices: np.ndarray, period: int, index: pd.Index) -> pd.Series:
         """Calcul RSI distribué sur GPU."""
@@ -706,10 +725,14 @@ def make_profile_key(
                 prices_2d, rsi_compute_func, seed=42
             )
 
-            if result.ndim > 1:
-                result = result.flatten()
+            # Convertir en ndarray pour garantir compatibilité
+            result_array = np.asarray(result)
 
-            return pd.Series(result, index=index, name="rsi")
+            # Aplatir si multi-dimensionnel
+            if result_array.ndim > 1:
+                result_array = result_array.flatten()
+
+            return pd.Series(result_array, index=index, name="rsi")
 
         except Exception as e:
             logger.warning(f"Erreur calcul GPU RSI: {e}")

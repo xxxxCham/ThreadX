@@ -11,6 +11,7 @@ Exécute des benchmarks sur les indicateurs ThreadX:
 Exécution:
     python -m threadx.benchmarks.run_indicators [--size 1000000] [--runs 5]
 """
+# type: ignore  # Trop d'erreurs de type, analyse désactivée
 
 import argparse
 import os

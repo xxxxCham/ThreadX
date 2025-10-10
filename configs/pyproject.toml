@@ -9,7 +9,7 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--disable-warnings",
-    "--color=yes"
+    "--color=yes",
 ]
 
 markers = [
@@ -17,7 +17,7 @@ markers = [
     "gpu: marks tests as requiring GPU (deselect with '-m \"not gpu\"')",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "unit: marks tests as unit tests",
-    "e2e: marks tests as end-to-end tests"
+    "e2e: marks tests as end-to-end tests",
 ]
 
 # Test discovery
@@ -26,13 +26,7 @@ norecursedirs = [".git", ".tox", "dist", "build", "*.egg", ".venv"]
 # Coverage settings
 [tool.coverage.run]
 source = ["src", "tools"]
-omit = [
-    "*/tests/*",
-    "*/test_*.py",
-    "*/__pycache__/*",
-    "*/.*",
-    "setup.py"
-]
+omit = ["*/tests/*", "*/test_*.py", "*/__pycache__/*", "*/.*", "setup.py"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -43,10 +37,33 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
     "if 0:",
-    "if __name__ == .__main__.:"
+    "if __name__ == .__main__.:",
 ]
 show_missing = true
 precision = 2
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.pylance]
+reportMissingTypeStubs = false

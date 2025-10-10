@@ -16,7 +16,7 @@ Version: Phase A
 """
 
 import sys
-import os
+import subprocess
 from pathlib import Path
 
 # Pour assurer que le module threadx est dans le PYTHONPATH
@@ -26,10 +26,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 def main():
     """Point d'entrée pour l'application Streamlit."""
     try:
-        # Import dynamique pour éviter les dépendances circulaires
-        import streamlit.web.bootstrap as bootstrap
-        from streamlit.web.bootstrap import run_streamlit_script
-
         # Chemin vers l'application Streamlit
         streamlit_app_path = (
             Path(__file__).parent.parent.parent.parent / "apps" / "streamlit" / "app.py"
@@ -40,17 +36,20 @@ def main():
                 f"Application Streamlit non trouvée: {streamlit_app_path}"
             )
 
-        # Paramètres Streamlit par défaut
-        args = [
-            "--",
+        # Lancement de Streamlit via subprocess
+        cmd = [
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
             str(streamlit_app_path),
             "--server.port=8504",
             "--browser.gatherUsageStats=false",
         ]
 
-        # Lancement de Streamlit via bootstrap
-        sys.argv = ["streamlit", "run"] + args
-        bootstrap.run()
+        print(f"🚀 Lancement de Streamlit: {streamlit_app_path}")
+        result = subprocess.run(cmd, check=True)
+        return result.returncode
 
     except ImportError as e:
         print(f"❌ Erreur: Streamlit n'est pas installé. {e}")

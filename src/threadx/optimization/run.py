@@ -1,4 +1,5 @@
 """Command-line interface for running optimization sweeps."""
+
 from __future__ import annotations
 
 import argparse
@@ -44,7 +45,9 @@ def validate_cli_config(config: Dict[str, Any], config_path: str) -> Dict[str, A
     if not isinstance(config, dict):
         raise ConfigurationError(config_path, "Configuration root must be a mapping")
 
-    _ensure_mapping(config.get("dataset"), config_path, "Invalid `dataset`: expected mapping")
+    _ensure_mapping(
+        config.get("dataset"), config_path, "Invalid `dataset`: expected mapping"
+    )
     scenario = _ensure_mapping(
         config.get("scenario"), config_path, "Invalid `scenario`: expected mapping"
     )
@@ -52,12 +55,16 @@ def validate_cli_config(config: Dict[str, Any], config_path: str) -> Dict[str, A
         config.get("params"), config_path, "Invalid `params`: expected mapping"
     )
     constraints = _ensure_mapping(
-        config.get("constraints"), config_path, "Invalid `constraints`: expected mapping"
+        config.get("constraints"),
+        config_path,
+        "Invalid `constraints`: expected mapping",
     )
 
     rules = constraints.get("rules", [])
     if not isinstance(rules, list):
-        raise ConfigurationError(config_path, "Invalid `constraints.rules`: expected list")
+        raise ConfigurationError(
+            config_path, "Invalid `constraints.rules`: expected list"
+        )
     if any(not isinstance(rule, dict) for rule in rules):
         raise ConfigurationError(
             config_path, "Invalid `constraints.rules`: each entry must be a mapping"
@@ -208,7 +215,9 @@ def main() -> None:
         ),
     )
 
-    parser.add_argument("--config", "-c", required=True, help="Chemin vers le fichier TOML")
+    parser.add_argument(
+        "--config", "-c", required=True, help="Chemin vers le fichier TOML"
+    )
     parser.add_argument("--dry-run", action="store_true", help="Valide sans exécuter")
     parser.add_argument("--verbose", "-v", action="store_true", help="Mode verbose")
 
