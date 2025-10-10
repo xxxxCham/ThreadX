@@ -53,9 +53,6 @@ class Settings:
 
     # Trading
     SUPPORTED_TF: Tuple[str, ...] = _DEFAULT_SUPPORTED_TIMEFRAMES
-    SUPPORTED_TIMEFRAMES: List[str] = field(
-        default_factory=lambda: list(_DEFAULT_SUPPORTED_TIMEFRAMES)
-    )
     DEFAULT_TIMEFRAME: str = "1h"
     BASE_CURRENCY: str = "USDT"
     FEE_RATE: float = 0.001
@@ -96,9 +93,12 @@ class Settings:
     CACHE_STRATEGY: str = "LRU"
 
     def __post_init__(self) -> None:
-        normalized = tuple(self.SUPPORTED_TIMEFRAMES)
+        normalized = tuple(self.SUPPORTED_TF)
         object.__setattr__(self, "SUPPORTED_TF", normalized)
-        object.__setattr__(self, "SUPPORTED_TIMEFRAMES", list(normalized))
+
+    @property
+    def SUPPORTED_TIMEFRAMES(self) -> List[str]:
+        return list(self.SUPPORTED_TF)
 
 
 DEFAULT_SETTINGS = Settings()

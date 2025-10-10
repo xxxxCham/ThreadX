@@ -1,20 +1,44 @@
 """Configuration-related exceptions for ThreadX."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 
-@dataclass(frozen=True)
 class ConfigurationError(Exception):
     """Domain-specific exception carrying contextual information."""
 
-    reason: str
-    path: Optional[str] = None
-    details: Optional[str] = None
+    def __init__(
+        self,
+        path_or_reason: Optional[str],
+        reason: Optional[str] = None,
+        *,
+        details: Optional[str] = None,
+        path: Optional[str] = None,
+    ) -> None:
+        if reason is None:
+            self.reason: str = (
+                str(path_or_reason)
+                if path_or_reason is not None
+                else "Unknown configuration error"
+            )
+        else:
+            self.reason = str(reason)
 
-    def __post_init__(self) -> None:  # pragma: no cover - dataclass validation trivial
-        super().__init__(self.reason)
+        if path is not None:
+            self.path: Optional[str] = str(path)
+        elif reason is not None:
+            self.path = str(path_or_reason) if path_or_reason is not None else None
+        else:
+            self.path = None
+        self.details = str(details) if details is not None else None
+        self._message = self._compose_full_message()
+        super().__init__(self._message)
+
+    def _compose_full_message(self) -> str:
+        base_message = self.user_message
+        if self.details:
+            return f"{base_message}\n{self.details}"
+        return base_message
 
     @property
     def user_message(self) -> str:
@@ -22,10 +46,7 @@ class ConfigurationError(Exception):
         return f"Configuration error{location}: {self.reason}"
 
     def __str__(self) -> str:
-        message = self.user_message
-        if self.details:
-            message = f"{message}\n{self.details}"
-        return message
+        return self._message
 
 
 class PathValidationError(Exception):

@@ -139,36 +139,34 @@ class TOMLConfigLoader:
             errors.append("paths.data_root must be a string")
             data_root = "./data"
 
-        resolved_paths: Dict[str, str] = {"data_root": data_root}
+        resolved_paths: Dict[str, str] = {}
+
+        def _is_absolute_forbidden() -> bool:
+            return should_validate or check_only
+
+        def _register_path(key: str, raw_value: str) -> None:
+            formatted = raw_value.format(data_root=data_root)
+            candidate = Path(formatted).expanduser()
+            if candidate.is_absolute() and not allow_abs and _is_absolute_forbidden():
+                errors.append(f"Absolute path not allowed for {key}: {candidate}")
+                return
+            resolved_paths[key] = formatted
+
+        _register_path("data_root", data_root)
 
         for key, value in paths_section.items():
-            if not isinstance(value, str):
+            if key == "data_root" or not isinstance(value, str):
                 continue
-            is_absolute = Path(value).is_absolute()
-            if is_absolute and not allow_abs and should_validate:
-                errors.append(f"Absolute path not allowed for {key}: {value}")
-                continue
-            resolved_paths[key] = value.format(data_root=data_root)
-
-        should_create = not check_only and not should_validate
-        if should_create:
-            for path_value in resolved_paths.values():
-                try:
-                    Path(path_value).expanduser().mkdir(parents=True, exist_ok=True)
-                except OSError as exc:
-                    errors.append(f"Unable to create path {path_value}: {exc}")
+            _register_path(key, value)
 
         if not check_only:
             self._validated_paths.update(resolved_paths)
             if not should_validate:
-                for key, value in resolved_paths.items():
+                for path_value in resolved_paths.values():
                     try:
-                        path_obj = Path(value).expanduser()
-                        if not path_obj.is_absolute():
-                            continue
-                        path_obj.mkdir(parents=True, exist_ok=True)
+                        Path(path_value).expanduser().mkdir(parents=True, exist_ok=True)
                     except OSError as exc:
-                        errors.append(f"Failed to create path for {key}: {value} ({exc})")
+                        errors.append(f"Unable to create path {path_value}: {exc}")
 
         return errors
 
@@ -239,11 +237,15 @@ class TOMLConfigLoader:
         cache = self.get_section("cache")
 
         defaults = DEFAULT_SETTINGS
-        supported_timeframes = trading.get(
-            "supported_timeframes", list(getattr(defaults, "SUPPORTED_TIMEFRAMES", list(defaults.SUPPORTED_TF)))
+        supported_timeframes_value = trading.get(
+            "supported_timeframes", getattr(defaults, "SUPPORTED_TIMEFRAMES", list(defaults.SUPPORTED_TF))
         )
-        if isinstance(supported_timeframes, tuple):
-            supported_timeframes = list(supported_timeframes)
+        if isinstance(supported_timeframes_value, tuple):
+            supported_timeframes = list(supported_timeframes_value)
+        elif isinstance(supported_timeframes_value, list):
+            supported_timeframes = list(supported_timeframes_value)
+        else:
+            supported_timeframes = list(defaults.SUPPORTED_TF)
 
         return Settings(
             DATA_ROOT=overrides.get("data_root", paths.get("data_root", defaults.DATA_ROOT)),
@@ -271,7 +273,6 @@ class TOMLConfigLoader:
             ),
             MEMORY_LIMIT_MB=performance.get("memory_limit_mb", defaults.MEMORY_LIMIT_MB),
             SUPPORTED_TF=tuple(supported_timeframes),
-            SUPPORTED_TIMEFRAMES=list(supported_timeframes),
             DEFAULT_TIMEFRAME=trading.get("default_timeframe", defaults.DEFAULT_TIMEFRAME),
             BASE_CURRENCY=trading.get("base_currency", defaults.BASE_CURRENCY),
             FEE_RATE=trading.get("fee_rate", defaults.FEE_RATE),
@@ -326,7 +327,8 @@ class TOMLConfigLoader:
         parser.add_argument("--max-workers", dest="max_workers", type=int)
         gpu_group = parser.add_mutually_exclusive_group()
         gpu_group.add_argument("--enable-gpu", dest="enable_gpu", action="store_true")
-        gpu_group.add_argument("--disable-gpu", dest="disable_gpu", action="store_true")
+        gpu_group.add_argument("--disable-gpu", dest="enable_gpu", action="store_false")
+        parser.set_defaults(enable_gpu=None)
         parser.add_argument("--print-config", action="store_true")
         return parser
 
@@ -345,10 +347,8 @@ def load_settings(config_path: Union[str, Path] = "paths.toml", cli_args: Option
         overrides["log_level"] = args.log_level
     if args.max_workers is not None:
         overrides["max_workers"] = args.max_workers
-    if args.enable_gpu:
-        overrides["enable_gpu"] = True
-    if args.disable_gpu:
-        overrides["enable_gpu"] = False
+    if args.enable_gpu is not None:
+        overrides["enable_gpu"] = args.enable_gpu
 
     resolved_config = args.config or config_path
     try:
