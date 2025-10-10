@@ -232,7 +232,7 @@ class RealDataScanner:
             return None
 
     def _scan_hypothetical_path(self, path: Path) -> Dict[str, any]:
-        """Scanner un chemin hypothétique (g:\ ou i:\)"""
+        """Scanner un chemin hypothétique (g:\\ ou i:\\)"""
         logger.info(f"🔍 Scan de {path}...")
 
         info = {
@@ -242,6 +242,7 @@ class RealDataScanner:
             "total_files": 0,
             "total_size_mb": 0.0,
             "structure": "To be analyzed",
+            "status": "Available for Analysis",
         }
 
         # TODO: Implémenter le scan si les chemins existent
