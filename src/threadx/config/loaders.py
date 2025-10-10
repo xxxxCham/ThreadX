@@ -41,6 +41,7 @@ class TOMLConfigLoader:
     DEFAULT_CONFIG_NAME = "paths.toml"
 
     def __init__(self, config_path: Optional[Union[str, Path]] = None):
+        self._validated_paths: Dict[str, str] = {}
         self.config_path = self._resolve_config_path(config_path)
         self.config_data = load_config_dict(self.config_path)
         self._validated_paths: Dict[str, str] = {}
@@ -213,6 +214,13 @@ class TOMLConfigLoader:
                 errors.append(f"performance.{key} must be a positive number")
         return errors
 
+    def _migrate_legacy_config(self) -> None:
+        self._ensure_internal_state()
+        if not isinstance(self.config_data, dict):
+            self.config_data = {}
+            return
+        _migrate_supported_timeframes(self.config_data)
+
     # ------------------------------------------------------------------
     # Settings construction
     # ------------------------------------------------------------------
@@ -351,7 +359,7 @@ _settings_cache: Optional[Settings] = None
 
 def load_settings(config_path: Union[str, Path] = "paths.toml", cli_args: Optional[Sequence[str]] = None) -> Settings:
     parser = TOMLConfigLoader.create_cli_parser()
-    args = parser.parse_args(cli_args) if cli_args is not None else parser.parse_args([])
+    args = parser.parse_args(cli_args) if cli_args is not None else parser.parse_args()
 
     overrides: Dict[str, Any] = {}
     if args.data_root:
