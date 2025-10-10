@@ -61,7 +61,7 @@ import pandas as pd
 
 # Import des calculateurs
 from .bollinger import BollingerBands, BollingerSettings
-from .atr import ATR, ATRSettings
+from .xatr import ATR, ATRSettings
 
 # Import Phase 2 Data
 try:
