@@ -5,23 +5,12 @@ from typing import Optional
 
 
 class ConfigurationError(Exception):
-    """Generic configuration exception with optional context."""
+    reason: str
+    path: Optional[str] = None
+    details: Optional[str] = None
 
-    def __init__(
-        self,
-        path_or_reason: Optional[str] = None,
-        reason: Optional[str] = None,
-        *,
-        details: Optional[str] = None,
-    ) -> None:
-        if reason is None:
-            self.path = None
-            self.reason = path_or_reason or "Configuration error"
-        else:
-            self.path = path_or_reason
-            self.reason = reason
-        self.details = details
-        super().__init__(self.__str__())
+    def __post_init__(self) -> None:  # pragma: no cover - dataclass validation trivial
+        super().__init__(self.reason)
 
     @property
     def user_message(self) -> str:
