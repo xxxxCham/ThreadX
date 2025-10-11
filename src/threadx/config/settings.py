@@ -94,3 +94,16 @@ class Settings:
 DEFAULT_SETTINGS = Settings()
 
 __all__ = ["Settings", "DEFAULT_SETTINGS"]
+
+# Export global settings instance
+# ----- Lazy singleton accessor (autocache) -----
+def get_settings(_cache={"value": None}):
+    """
+    Retourne une instance Settings unique (mise en cache au niveau du process).
+    Évite de ré-instancier Settings à chaque import.
+    """
+    if _cache["value"] is None:
+        _cache["value"] = Settings()
+    return _cache["value"]
+S = get_settings()
+
