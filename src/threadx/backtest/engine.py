@@ -46,7 +46,7 @@ except ImportError:
     TIMING_AVAILABLE = False
 
     # Fallback decorators si timing non disponible
-    def measure_throughput(name=None, *, unit_of_work="task"):
+    def measure_throughput(name=None, *, unit="task"):
         def decorator(func):
             return func
 
@@ -460,7 +460,7 @@ class BacktestEngine:
 
         self.logger.debug("✅ Validation inputs réussie")
 
-    @measure_throughput("signal_generation", unit_of_work="signal")
+    @measure_throughput("signal_generation", unit="signal")
     def _generate_trading_signals(
         self, df_1m: pd.DataFrame, indicators: Dict[str, Any], params: Dict[str, Any]
     ) -> pd.Series:
@@ -1008,3 +1008,4 @@ logger.info(f"ThreadX Backtest Engine v10 loaded")
 logger.debug(f"   GPU utils: {'✅' if GPU_UTILS_AVAILABLE else '❌'}")
 logger.debug(f"   XP utils: {'✅' if XP_AVAILABLE else '❌'}")
 logger.debug(f"   Timing utils: {'✅' if 'measure_throughput' in globals() else '❌'}")
+
