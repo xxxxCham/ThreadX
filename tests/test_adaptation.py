@@ -1,6 +1,6 @@
 """Test rapide de l'adaptation aux chemins USDC"""
 
-from threadx.data.providers.token_diversity import (
+from threadx.data.tokens import (
     create_default_config,
     TokenDiversityDataSource,
 )
@@ -60,3 +60,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

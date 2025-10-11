@@ -23,7 +23,7 @@ logging.basicConfig(
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from threadx.data.providers.token_diversity import (
+from threadx.data.tokens import (
     TokenDiversityDataSource,
     TokenDiversityConfig,
 )
@@ -140,3 +140,4 @@ def test_option_b_final():
 if __name__ == "__main__":
     success = test_option_b_final()
     sys.exit(0 if success else 1)
+

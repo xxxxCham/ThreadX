@@ -9,13 +9,13 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 
 def test_integration_complete():
-    """Test d'intégration complet du pipeline TokenDiversityDataSource Option B."""
+    """Test d'intégration complet du pipeline Option B."""
     print("=== Test intégration complète - Étape C Option B ===")
 
     try:
         # 1. Test provider direct
         print("\n1. Test TokenDiversityDataSource direct")
-        from threadx.data.providers.token_diversity import (
+        from threadx.data.tokens import (
             TokenDiversityDataSource,
             create_default_config,
         )
@@ -29,15 +29,17 @@ def test_integration_complete():
 
         # Test récupération OHLCV (Option B)
         btc_data = provider.get_frame("BTCUSDT", "1h")
-        print(f"✓ OHLCV BTC: {len(btc_data)} rows, colonnes: {list(btc_data.columns)}")
+        print(
+            f"✓ OHLCV BTC: {len(btc_data)} rows, " f"colonnes: {list(btc_data.columns)}"
+        )
 
         # Vérification Option B : AUCUNE colonne d'indicateur
         ohlcv_cols = {"open", "high", "low", "close", "volume"}
         extra_cols = set(btc_data.columns) - ohlcv_cols
         if not extra_cols:
-            print("✓ Option B confirmée: OHLCV uniquement, pas d'indicateurs")
+            print("✓ Option B confirmée: OHLCV uniquement")
         else:
-            print(f"⚠ Colonnes supplémentaires détectées: {extra_cols}")
+            print(f"⚠ Colonnes supplémentaires: {extra_cols}")
 
         # 2. Test avec IndicatorBank (délégation)
         print("\n2. Test délégation IndicatorBank")
@@ -53,7 +55,7 @@ def test_integration_complete():
                 symbol="BTCUSDT",
             )
 
-            print(f"✓ IndicatorBank: {len(indicators_df.columns)} colonnes totales")
+            print(f"✓ IndicatorBank: {len(indicators_df.columns)} " "colonnes totales")
             indicators_only = set(indicators_df.columns) - ohlcv_cols
             print(f"✓ Indicateurs ajoutés: {indicators_only}")
 
@@ -62,7 +64,9 @@ def test_integration_complete():
 
         # 3. Test pipeline unifié
         print("\n3. Test pipeline unifié")
-        from threadx.data.diversity_pipeline import run_unified_diversity
+        from threadx.data.unified_diversity_pipeline import (
+            run_unified_diversity,
+        )
 
         results = run_unified_diversity(
             symbols=["BTCUSDT", "ETHUSDT"],

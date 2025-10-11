@@ -25,7 +25,7 @@ import logging
 # Setup path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from threadx.data.providers.token_diversity import (
+from threadx.data.tokens import (
     TokenDiversityManager,
     IndicatorSpec,
     PriceSourceSpec,
@@ -459,3 +459,4 @@ if __name__ == "__main__":
         import traceback
 
         traceback.print_exc()
+

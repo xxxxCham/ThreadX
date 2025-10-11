@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 import pandas as pd
 
-from threadx.data.providers.token_diversity import (
+from threadx.data.tokens import (
     TokenDiversityConfig,
     TokenDiversityDataSource,
     create_default_config,
@@ -183,7 +183,7 @@ class TestFetchOHLCV:
     def test_fetch_ohlcv_file_not_found(self, provider):
         """Test fetch_ohlcv quand fichier absent"""
         # Créer config avec symbole sans données locales
-        from threadx.data.providers.token_diversity import (
+        from threadx.data.tokens import (
             TokenDiversityConfig,
             TokenDiversityDataSource,
         )
@@ -296,3 +296,4 @@ def manual_test_fetch_with_real_data():
 if __name__ == "__main__":
     # Lancer tests manuels si exécuté directement
     manual_test_fetch_with_real_data()
+

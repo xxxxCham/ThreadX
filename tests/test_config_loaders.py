@@ -333,14 +333,14 @@ class TestCLIOverrides:
         [paths]
         data_root = "./original"
         logs = "./logs"
-        
+
         [gpu]
         enable_gpu = true
-        
+
         [performance]
         max_workers = 2
         cache_ttl_sec = 1800
-        
+
         [trading]
         supported_timeframes = ["1h"]
         """
@@ -356,11 +356,11 @@ class TestCLIOverrides:
             )
 
             # CLI override
-            assert settings.DATA_ROOT == "./overridden"
+            assert settings.paths["data_root"] == "./overridden"
             # Autre CLI override
-            assert settings.MAX_WORKERS == 8
+            assert settings.performance["max_workers"] == 8
             # Valeur du fichier (non overridée)
-            assert settings.CACHE_TTL_SEC == 1800
+            assert settings.performance["cache_ttl_sec"] == 1800
         finally:
             os.unlink(f.name)
 
@@ -481,20 +481,20 @@ class TestSmokeTests:
         data_root = "./test_data"
         logs = "./test_logs"
         cache = "./test_cache"
-        
+
         [gpu]
         enable_gpu = false
         devices = ["cpu"]
-        
+
         [performance]
         max_workers = 2
         cache_ttl_sec = 300
         target_tasks_per_min = 1000
-        
+
         [trading]
         supported_timeframes = ["5m", "1h"]
         default_timeframe = "1h"
-        
+
         [security]
         validate_paths = false
         allow_absolute_paths = true

@@ -84,7 +84,7 @@ def test_integration():
 
     try:
         # Test import TokenDiversityManager
-        from threadx.data.providers.token_diversity import TokenDiversityManager
+        from threadx.data.tokens import TokenDiversityManager
 
         print("✅ TokenDiversityManager : OK")
 
@@ -195,3 +195,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

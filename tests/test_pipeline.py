@@ -12,7 +12,9 @@ def test_pipeline():
     print("=== Test Pipeline TokenDiversityDataSource - Option B ===")
 
     try:
-        from threadx.data.diversity_pipeline import run_unified_diversity
+        from threadx.data.unified_diversity_pipeline import (
+            run_unified_diversity,
+        )
 
         print("✓ Import pipeline réussi")
 
