@@ -87,7 +87,11 @@ class SweepRunner:
 
         # Génération des combinaisons
         with self._time_stage("scenario_generation"):
-            combinations = generate_param_grid(grid_spec)
+            # Extraire les params du ScenarioSpec (dict ou ScenarioSpec)
+            params = (
+                grid_spec["params"] if isinstance(grid_spec, dict) else grid_spec.params
+            )
+            combinations = generate_param_grid(params)
 
         self.total_scenarios = len(combinations)
         self.logger.info(f"Grille générée: {self.total_scenarios} combinaisons")
@@ -114,7 +118,17 @@ class SweepRunner:
 
         # Génération des scénarios
         with self._time_stage("scenario_generation"):
-            scenarios = generate_monte_carlo(mc_spec)
+            # Extraire les params et autres attributs
+            params = mc_spec["params"] if isinstance(mc_spec, dict) else mc_spec.params
+            n_scenarios = (
+                mc_spec.get("n_scenarios", 100)
+                if isinstance(mc_spec, dict)
+                else mc_spec.n_scenarios
+            )
+            seed = (
+                mc_spec.get("seed", 42) if isinstance(mc_spec, dict) else mc_spec.seed
+            )
+            scenarios = generate_monte_carlo(params, n_scenarios, seed)
 
         self.total_scenarios = len(scenarios)
         self.logger.info(f"Monte Carlo généré: {self.total_scenarios} scénarios")

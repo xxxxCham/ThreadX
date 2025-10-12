@@ -1,5 +1,5 @@
 ﻿"""
-Tests complets pour le contrat UDFI - Phase A
+Tests complets pour le contrat UDFI 
 """
 import pytest
 import pandas as pd

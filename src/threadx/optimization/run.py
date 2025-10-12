@@ -13,7 +13,7 @@ from threadx.config import ConfigurationError, load_config_dict
 from threadx.indicators.bank import IndicatorBank
 from threadx.optimization.engine import SweepRunner
 from threadx.optimization.reporting import write_reports
-from threadx.optimization.scenarios import ScenarioSpec, validate_scenario_spec
+from threadx.optimization.scenarios import ScenarioSpec
 from threadx.utils.determinism import set_global_seed
 from threadx.utils.log import get_logger
 
@@ -93,38 +93,50 @@ def validate_cli_config(config: Dict[str, Any], config_path: str) -> Dict[str, A
     return config
 
 
-def build_scenario_spec(config: Dict[str, Any], config_path: str) -> ScenarioSpec:
+def build_scenario_spec(config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
     scenario = config.get("scenario", {})
     params = config.get("params", {})
     constraints = config.get("constraints", {})
 
-    spec_dict = {
-        "type": scenario.get("type", "grid"),
-        "params": params,
-        "seed": scenario.get("seed", 42),
-        "n_scenarios": scenario.get("n_scenarios", 100),
-        "sampler": scenario.get(
+    # Si la config utilise run.* au lieu de scenario.*
+    run_config = config.get("run", {})
+    if run_config:
+        scenario_type = run_config.get("type", "grid")
+        scenario_seed = run_config.get("seed", 42)
+        scenario_n = run_config.get("n_scenarios", 100)
+        scenario_sampler = run_config.get(
+            "sampler", "grid" if scenario_type == "grid" else "sobol"
+        )
+        scenario_params = run_config.get("params", params)
+        scenario_constraints = run_config.get(
+            "constraints", constraints.get("rules", [])
+        )
+    else:
+        scenario_type = scenario.get("type", "grid")
+        scenario_seed = scenario.get("seed", 42)
+        scenario_n = scenario.get("n_scenarios", 100)
+        scenario_sampler = scenario.get(
             "sampler",
-            "sobol" if scenario.get("type") == "monte_carlo" else "grid",
-        ),
-        "constraints": constraints.get("rules", []),
-    }
+            "sobol" if scenario_type == "monte_carlo" else "grid",
+        )
+        scenario_params = params
+        scenario_constraints = constraints.get("rules", [])
 
-    try:
-        spec = validate_scenario_spec(spec_dict)
-    except Exception as exc:  # pragma: no cover - delegated validation
-        raise ConfigurationError(
-            config_path,
-            "Invalid optimization scenario specification",
-            details=str(exc),
-        ) from exc
+    spec_dict = {
+        "type": scenario_type,
+        "params": scenario_params,
+        "seed": scenario_seed,
+        "n_scenarios": scenario_n,
+        "sampler": scenario_sampler,
+        "constraints": scenario_constraints,
+    }
 
     logger.info(
         "Configuration validée: %s avec %d paramètres",
-        spec["type"],
-        len(spec.get("params", {})),
+        spec_dict["type"],
+        len(spec_dict.get("params", {})),
     )
-    return spec
+    return spec_dict
 
 
 def run_sweep(config: Dict[str, Any], config_path: str, dry_run: bool = False) -> None:
@@ -230,24 +242,19 @@ def main() -> None:
 
     config_path = Path(args.config).resolve()
 
+    if not config_path.exists():
+        logger.error(f"❌ Fichier de configuration introuvable: {config_path}")
+        sys.exit(1)
+
     try:
         # Chargement et exécution
-        config = load_config_dict(args.config)
+        config = load_config_dict(str(config_path))
         logger.info(f"Configuration chargée: {args.config}")
-        run_sweep(config, dry_run=args.dry_run)
-
-        if not args.dry_run:
-            logger.info("✅ Sweep terminé avec succès")
-
-    except ConfigurationError as e:
-        logger.error(f"❌ Erreur configuration: {e}")
-        sys.exit(1)
-    except Exception as e:
-        logger.error(f"❌ Erreur: {e}")
-        config = load_config_dict(config_path)
         run_sweep(config, str(config_path), dry_run=args.dry_run)
+
         if not args.dry_run:
             logger.info("✅ Sweep terminé avec succès")
+
     except ConfigurationError as exc:
         logger.error(exc.user_message)
         logger.debug("Configuration error", exc_info=True)

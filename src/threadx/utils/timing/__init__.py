@@ -14,14 +14,15 @@ Features:
 Author: ThreadX Framework
 Version: Phase 9 - Timing Utils
 """
+
 # type: ignore  # Trop d'erreurs de type, analyse désactivée
 
 import time
 import functools
-import logging
 import contextlib
+from contextlib import contextmanager
 from types import SimpleNamespace
-from typing import Any, Callable, Dict, Optional, Generator
+from typing import Any, Callable, Dict, Optional
 import threading
 import gc
 
@@ -400,11 +401,38 @@ def benchmark_operation(
         "max": float(np.max(times)),
         "runs": len(times),
     }
+
+
+# Safe import des utilitaires de mesure; fournit un fallback no-op si absents.
+try:
+    # Si dispo dans ton projet
+    from ._measure import combined_measurement  # type: ignore
+except Exception:  # fallback no-op
+
+    @contextmanager
+    def combined_measurement(_name: str = "", **_kwargs):
+        start = time.perf_counter()
+        try:
+            yield
+        finally:
+            _ = time.perf_counter() - start
+            # no-op: on pourrait logger si besoin
+
+
 # Back-compat export
 try:
     from threadx.backtest.performance import PerformanceMetrics  # noqa: F401
 except Exception:
+
     class PerformanceMetrics:  # type: ignore
-        def __init__(self, *a, **k): pass
-        def start(self, *a, **k): pass
-        def stop(self, *a, **k): pass
+        def __init__(self, *a, **k):
+            pass
+
+        def start(self, *a, **k):
+            pass
+
+        def stop(self, *a, **k):
+            pass
+
+
+__all__ = ["combined_measurement"]

@@ -1,5 +1,5 @@
 """
-ThreadX Centralized Logging System - Phase 7
+ThreadX Centralized Logging System - 
 ==============================================
 
 Provides logger configuration with rotation, Windows-compatible file handling,
