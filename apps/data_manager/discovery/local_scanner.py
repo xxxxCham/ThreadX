@@ -22,7 +22,11 @@ def scan_local_data(
     results: List[Dict[str, Any]] = []
     for p in paths or []:
         if os.path.exists(p):
-            results.append({"path": os.path.abspath(p), "ok": True, "meta": {}})
+            results.append({
+                "path": os.path.abspath(p),
+                "ok": True,
+                "meta": {}
+            })
     return results
 
 

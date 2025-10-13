@@ -1,0 +1,131 @@
+D:\ThreadX\src\threadx\ui\__init__.py:16: from .app import ThreadXApp, run_app
+D:\ThreadX\src\threadx\ui\__init__.py:17: from .charts import plot_equity, plot_drawdown, altair_equity
+D:\ThreadX\src\threadx\ui\__init__.py:18: from .tables import render_trades_table, render_metrics_table, export_table
+D:\ThreadX\src\threadx\ui\__init__.py:21: from . import tkinter
+D:\ThreadX\src\threadx\ui\__init__.py:22: from . import streamlit
+D:\ThreadX\src\threadx\ui\app_techintetor.py:2: import os, sys, logging, threading, traceback
+D:\ThreadX\src\threadx\ui\app_techintetor.py:3: from pathlib import Path
+D:\ThreadX\src\threadx\ui\app_techintetor.py:4: from concurrent.futures import ThreadPoolExecutor
+D:\ThreadX\src\threadx\ui\app_techintetor.py:5: from typing import Any, Dict, Optional, Union
+D:\ThreadX\src\threadx\ui\app_techintetor.py:7: import tkinter as tk
+D:\ThreadX\src\threadx\ui\app_techintetor.py:8: from tkinter import ttk, messagebox, filedialog
+D:\ThreadX\src\threadx\ui\app_techintetor.py:9: from tkinter.scrolledtext import ScrolledText
+D:\ThreadX\src\threadx\ui\app_techintetor.py:11: import pandas as pd
+D:\ThreadX\src\threadx\ui\app_techintetor.py:12: import numpy as np
+D:\ThreadX\src\threadx\ui\app_techintetor.py:26: from threadx.indicators.bank import IndicatorBank
+D:\ThreadX\src\threadx\ui\app_techintetor.py:34: from threadx.backtest.engine import create_engine
+D:\ThreadX\src\threadx\ui\app_techintetor.py:52: import pandas as _pd
+D:\ThreadX\src\threadx\ui\app_techintetor.py:99: from threadx.backtest.performance import PerformanceCalculator  # type: ignore
+D:\ThreadX\src\threadx\ui\app_techintetor.py:107: import numpy as _np
+D:\ThreadX\src\threadx\ui\app_techintetor.py:108: import pandas as _pd
+D:\ThreadX\src\threadx\ui\app.py:23: import json
+D:\ThreadX\src\threadx\ui\app.py:24: import logging
+D:\ThreadX\src\threadx\ui\app.py:25: import os
+D:\ThreadX\src\threadx\ui\app.py:26: import re
+D:\ThreadX\src\threadx\ui\app.py:27: import threading
+D:\ThreadX\src\threadx\ui\app.py:28: import tkinter as tk
+D:\ThreadX\src\threadx\ui\app.py:29: from concurrent.futures import ThreadPoolExecutor
+D:\ThreadX\src\threadx\ui\app.py:30: from pathlib import Path
+D:\ThreadX\src\threadx\ui\app.py:31: from tkinter import ttk, filedialog, messagebox, scrolledtext
+D:\ThreadX\src\threadx\ui\app.py:32: from typing import Any, Dict, List, Optional, Union
+D:\ThreadX\src\threadx\ui\app.py:33: import traceback
+D:\ThreadX\src\threadx\ui\app.py:34: import time
+D:\ThreadX\src\threadx\ui\app.py:36: import pandas as pd
+D:\ThreadX\src\threadx\ui\app.py:37: import numpy as np
+D:\ThreadX\src\threadx\ui\app.py:41: from threadx.config import get_settings
+D:\ThreadX\src\threadx\ui\app.py:42: from threadx.utils.log import get_logger, setup_logging_once
+D:\ThreadX\src\threadx\ui\app.py:43: from threadx.data.ingest import IngestionManager
+D:\ThreadX\src\threadx\ui\app.py:44: from threadx.indicators.bank import IndicatorBank
+D:\ThreadX\src\threadx\ui\app.py:45: from threadx.backtest.performance import PerformanceMetrics
+D:\ThreadX\src\threadx\ui\app.py:46: from threadx.backtest.engine import BacktestEngine, create_engine
+D:\ThreadX\src\threadx\ui\app.py:47: from threadx.optimization import create_optimization_ui
+D:\ThreadX\src\threadx\ui\app.py:48: from .downloads import create_downloads_page
+D:\ThreadX\src\threadx\ui\app.py:49: from .sweep import create_sweep_page
+D:\ThreadX\src\threadx\ui\app.py:76: from dataclasses import dataclass, field
+D:\ThreadX\src\threadx\ui\app.py:77: from typing import Dict, Any
+D:\ThreadX\src\threadx\ui\app.py:103: from threadx.indicators.bank import IndicatorBank as Bank
+D:\ThreadX\src\threadx\ui\app.py:113: from threadx.backtest.performance import PerformanceMetrics
+D:\ThreadX\src\threadx\ui\app.py:148: from dataclasses import dataclass, field
+D:\ThreadX\src\threadx\ui\app.py:149: from typing import Dict, Any
+D:\ThreadX\src\threadx\ui\app.py:413: from ctypes import windll
+D:\ThreadX\src\threadx\ui\app.py:785: from .downloads import create_downloads_page
+D:\ThreadX\src\threadx\ui\app.py:812: from .sweep import create_sweep_page
+D:\ThreadX\src\threadx\ui\app.py:962: import webbrowser
+D:\ThreadX\src\threadx\ui\app.py:1217: import tkdnd
+D:\ThreadX\src\threadx\ui\app.py:1218: from tkdnd import TkDND, DND_FILES
+D:\ThreadX\src\threadx\ui\app.py:1904: from threadx.ui.charts import plot_equity
+D:\ThreadX\src\threadx\ui\app.py:1929: from threadx.ui.charts import plot_drawdown
+D:\ThreadX\src\threadx\ui\app.py:1960: from threadx.ui.charts import plot_equity, plot_drawdown
+D:\ThreadX\src\threadx\ui\app.py:1998: from threadx.ui.tables import render_trades_table
+D:\ThreadX\src\threadx\ui\app.py:2021: from threadx.ui.tables import render_metrics_table
+D:\ThreadX\src\threadx\ui\app.py:2358: import traceback
+D:\ThreadX\src\threadx\ui\charts.py:21: import logging
+D:\ThreadX\src\threadx\ui\charts.py:22: from pathlib import Path
+D:\ThreadX\src\threadx\ui\charts.py:23: from typing import Optional, Union, Any
+D:\ThreadX\src\threadx\ui\charts.py:24: import warnings
+D:\ThreadX\src\threadx\ui\charts.py:26: import pandas as pd
+D:\ThreadX\src\threadx\ui\charts.py:27: import numpy as np
+D:\ThreadX\src\threadx\ui\charts.py:30: import matplotlib
+D:\ThreadX\src\threadx\ui\charts.py:33: import matplotlib.pyplot as plt
+D:\ThreadX\src\threadx\ui\charts.py:34: import matplotlib.dates as mdates
+D:\ThreadX\src\threadx\ui\charts.py:35: from matplotlib.figure import Figure
+D:\ThreadX\src\threadx\ui\charts.py:39: import altair as alt
+D:\ThreadX\src\threadx\ui\charts.py:48: from ..utils.log import get_logger
+D:\ThreadX\src\threadx\ui\data_manager.py:14: import tkinter as tk
+D:\ThreadX\src\threadx\ui\data_manager.py:15: from tkinter import ttk, messagebox, scrolledtext
+D:\ThreadX\src\threadx\ui\data_manager.py:16: from datetime import datetime, timedelta
+D:\ThreadX\src\threadx\ui\data_manager.py:17: from threading import Thread
+D:\ThreadX\src\threadx\ui\data_manager.py:18: from queue import Queue, Empty
+D:\ThreadX\src\threadx\ui\data_manager.py:19: from typing import List, Dict, Any, Optional
+D:\ThreadX\src\threadx\ui\data_manager.py:20: import logging
+D:\ThreadX\src\threadx\ui\data_manager.py:22: from ..config import get_settings
+D:\ThreadX\src\threadx\ui\data_manager.py:23: from ..data.ingest import IngestionManager
+D:\ThreadX\src\threadx\ui\downloads.py:16: import tkinter as tk
+D:\ThreadX\src\threadx\ui\downloads.py:17: from tkinter import ttk, messagebox, scrolledtext
+D:\ThreadX\src\threadx\ui\downloads.py:18: from datetime import datetime, timedelta
+D:\ThreadX\src\threadx\ui\downloads.py:19: from threading import Thread
+D:\ThreadX\src\threadx\ui\downloads.py:20: from queue import Queue, Empty
+D:\ThreadX\src\threadx\ui\downloads.py:21: from typing import List, Dict, Any, Optional
+D:\ThreadX\src\threadx\ui\downloads.py:22: import time
+D:\ThreadX\src\threadx\ui\downloads.py:23: import logging
+D:\ThreadX\src\threadx\ui\downloads.py:25: from ..config import get_settings
+D:\ThreadX\src\threadx\ui\downloads.py:26: from ..data.ingest import IngestionManager
+D:\ThreadX\src\threadx\ui\downloads.py:27: from ..utils.log import get_logger
+D:\ThreadX\src\threadx\ui\downloads.py:466: import inspect
+D:\ThreadX\src\threadx\ui\downloads.py:508: import random
+D:\ThreadX\src\threadx\ui\streamlit.py:18: import sys
+D:\ThreadX\src\threadx\ui\streamlit.py:19: import subprocess
+D:\ThreadX\src\threadx\ui\streamlit.py:20: from pathlib import Path
+D:\ThreadX\src\threadx\ui\streamlit.py:63: import traceback
+D:\ThreadX\src\threadx\ui\sweep_minimal.py:2: import tkinter as tk
+D:\ThreadX\src\threadx\ui\sweep_minimal.py:3: from tkinter import ttk, messagebox
+D:\ThreadX\src\threadx\ui\sweep_minimal.py:4: from concurrent.futures import ThreadPoolExecutor, as_completed
+D:\ThreadX\src\threadx\ui\sweep_minimal.py:5: import pandas as pd
+D:\ThreadX\src\threadx\ui\sweep_minimal.py:6: import numpy as np
+D:\ThreadX\src\threadx\ui\sweep_minimal.py:7: import time
+D:\ThreadX\src\threadx\ui\sweep.py:21: import tkinter as tk
+D:\ThreadX\src\threadx\ui\sweep.py:22: from tkinter import ttk, filedialog, messagebox, scrolledtext
+D:\ThreadX\src\threadx\ui\sweep.py:23: from threading import Thread
+D:\ThreadX\src\threadx\ui\sweep.py:24: from queue import Queue, Empty
+D:\ThreadX\src\threadx\ui\sweep.py:25: from typing import Dict, Optional, Any, List
+D:\ThreadX\src\threadx\ui\sweep.py:26: import time
+D:\ThreadX\src\threadx\ui\sweep.py:27: import json
+D:\ThreadX\src\threadx\ui\sweep.py:28: import pandas as pd
+D:\ThreadX\src\threadx\ui\sweep.py:29: from pathlib import Path
+D:\ThreadX\src\threadx\ui\sweep.py:30: import logging
+D:\ThreadX\src\threadx\ui\sweep.py:32: from ..optimization.engine import UnifiedOptimizationEngine, DEFAULT_SWEEP_CONFIG
+D:\ThreadX\src\threadx\ui\sweep.py:33: from ..indicators.bank import IndicatorBank
+D:\ThreadX\src\threadx\ui\sweep.py:34: from ..utils.log import get_logger
+D:\ThreadX\src\threadx\ui\tables.py:25: import csv
+D:\ThreadX\src\threadx\ui\tables.py:26: import logging
+D:\ThreadX\src\threadx\ui\tables.py:27: from pathlib import Path
+D:\ThreadX\src\threadx\ui\tables.py:28: from typing import Any, Dict, List, Optional, Union
+D:\ThreadX\src\threadx\ui\tables.py:29: import json
+D:\ThreadX\src\threadx\ui\tables.py:31: import pandas as pd
+D:\ThreadX\src\threadx\ui\tables.py:32: import numpy as np
+D:\ThreadX\src\threadx\ui\tables.py:36: from threadx.utils.log import get_logger
+D:\ThreadX\src\threadx\ui\tk_widgets.py:19: import sys
+D:\ThreadX\src\threadx\ui\tk_widgets.py:20: import argparse
+D:\ThreadX\src\threadx\ui\tk_widgets.py:21: from pathlib import Path
+D:\ThreadX\src\threadx\ui\tk_widgets.py:60: from threadx.ui.app import ThreadXApp
+D:\ThreadX\src\threadx\ui\tk_widgets.py:81: import traceback
