@@ -1,40 +1,60 @@
 """
-ThreadX UI Components
-====================
+ThreadX UI Module - Dash Components & Layout
+============================================
 
-Composants d'interface utilisateur pour ThreadX :
-- Application Tkinter principale (Windows-first)
-- Interface Streamlit (fallback web)
-- Composants graphiques (Matplotlib/Altair)
-- Composants tabulaires avec export
+Module UI pour ThreadX Dashboard.
+Expose les composants Dash réutilisables et le layout principal.
 
-Author: ThreadX Team
-Version: Phase A - Cleanup & Refactoring
+Exports:
+    - create_layout: Fonction principale layout Dashboard
+    - Legacy Tkinter/Streamlit (deprecated, voir apps/)
+
+Usage:
+    from threadx.ui.layout import create_layout
+    app.layout = create_layout(bridge)
+
+Structure:
+    ui/
+      ├─ layout.py         (Layout principal Dash - P4)
+      ├─ callbacks.py      (P7 - Callbacks)
+      └─ components/
+          ├─ data_manager.py      (P5)
+          ├─ indicators_panel.py  (P5)
+          ├─ backtest_panel.py    (P6)
+          └─ optimization_panel.py (P6)
+
+Author: ThreadX Framework
+Version: Prompt 4 - Layout Principal
 """
 
-# Composants d'interface utilisateur
-from .app import ThreadXApp, run_app
-from .charts import plot_equity, plot_drawdown, altair_equity
-from .tables import render_trades_table, render_metrics_table, export_table
+# Dash layout (P4)
+from .layout import create_layout
 
-# Points d'entrée unifiés
-from . import tkinter
-from . import streamlit
+# Legacy components (deprecated, kept for compatibility)
+try:
+    from .app import ThreadXApp, run_app
+    from .charts import plot_equity, plot_drawdown, altair_equity
+    from .tables import (
+        export_table,
+        render_metrics_table,
+        render_trades_table,
+    )
+except ImportError:
+    # Legacy modules optionnels
+    pass
 
 __all__ = [
-    # Application
+    # Dash (P4)
+    "create_layout",
+    # Legacy (compatibility)
     "ThreadXApp",
     "run_app",
-    # Points d'entrée
-    "tkinter",
-    "streamlit",
-    # Composants graphiques
     "plot_equity",
     "plot_drawdown",
     "altair_equity",
-    # Composants tabulaires
     "render_trades_table",
     "render_metrics_table",
-    "export_table" "render_metrics_table",
     "export_table",
 ]
+
+__version__ = "0.2.0"  # P4 Dash integration
