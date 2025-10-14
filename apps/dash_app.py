@@ -50,11 +50,13 @@ from threadx.ui.layout import create_layout
 # Pas d'appel métier ici, juste passage instance
 try:
     from threadx.bridge import ThreadXBridge
+    from threadx.ui.callbacks import register_callbacks
 
     bridge = ThreadXBridge(max_workers=4)
 except ImportError:
     # Bridge pas encore implémenté ou tests isolés
     bridge = None
+    register_callbacks = None
 
 
 # Configuration application
@@ -80,6 +82,13 @@ server = app.server
 
 # Charger layout principal
 app.layout = create_layout(bridge)
+
+# Enregistrer callbacks (P7)
+if bridge and register_callbacks:
+    register_callbacks(app, bridge)
+    print("Callbacks: Registered (P7 active)")
+else:
+    print("Callbacks: Skipped (P7 not available)")
 
 
 if __name__ == "__main__":

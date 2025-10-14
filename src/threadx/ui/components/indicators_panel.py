@@ -143,7 +143,7 @@ def create_indicators_panel():
                                 striped=True,
                                 bordered=True,
                                 hover=True,
-                                dark=True,
+                                color="dark",
                                 className="mb-0",
                                 children=[
                                     html.Thead(

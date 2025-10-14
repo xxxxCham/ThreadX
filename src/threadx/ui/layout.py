@@ -3,8 +3,7 @@ ThreadX UI Layout - Structure Principale Dashboard
 ==================================================
 
 Layout statique Dash pour ThreadX Dashboard.
-Architecture 4 onglets modulaire avec zones placeholders
-pour composants futurs (P5-P6).
+Architecture 4 onglets modulaire avec composants P5-P6 intégrés.
 
 Onglets:
     1. Data Manager - Upload/Validation données
@@ -22,11 +21,17 @@ Usage:
     app.layout = create_layout(bridge)
 
 Author: ThreadX Framework
-Version: Prompt 4 - Layout Principal
+Version: Prompt 4 + P8 - Layout Principal avec Composants Intégrés
 """
 
 import dash_bootstrap_components as dbc
 from dash import dcc, html
+
+# Import composants P5-P6
+from threadx.ui.components.data_manager import create_data_manager_panel
+from threadx.ui.components.indicators_panel import create_indicators_panel
+from threadx.ui.components.backtest_panel import create_backtest_panel
+from threadx.ui.components.optimization_panel import create_optimization_panel
 
 
 def create_layout(bridge=None):
@@ -59,6 +64,22 @@ def create_layout(bridge=None):
         fluid=True,
         className="bg-dark text-light min-vh-100 p-0",
         children=[
+            # ═════════════════════════════════════════════════════
+            # HIDDEN STORES - Task IDs for Polling (P7)
+            # ═════════════════════════════════════════════════════
+            dcc.Store(id="data-task-store", data=None),
+            dcc.Store(id="indicators-task-store", data=None),
+            dcc.Store(id="bt-task-store", data=None),
+            dcc.Store(id="opt-task-store", data=None),
+            # ═════════════════════════════════════════════════════
+            # GLOBAL POLLING INTERVAL - 500ms (P7)
+            # ═════════════════════════════════════════════════════
+            dcc.Interval(
+                id="global-interval",
+                interval=500,  # 500ms
+                n_intervals=0,
+                disabled=False,
+            ),
             # ═════════════════════════════════════════════════════
             # HEADER - Titre + Sous-titre
             # ═════════════════════════════════════════════════════
@@ -113,13 +134,20 @@ def create_layout(bridge=None):
                                 className="bg-dark text-light",
                                 selected_className="bg-primary",
                                 children=[
-                                    _create_tab_layout(
-                                        tab_id="data",
-                                        title="Data Management",
-                                        subtitle=(
-                                            "Upload, validate, and manage "
-                                            "market data sources"
-                                        ),
+                                    html.Div(
+                                        className="p-4",
+                                        children=[
+                                            html.H3(
+                                                "Data Management",
+                                                className="text-light mb-1",
+                                            ),
+                                            html.P(
+                                                "Upload, validate, and manage "
+                                                "market data sources",
+                                                className="text-muted mb-4",
+                                            ),
+                                            create_data_manager_panel(),
+                                        ],
                                     )
                                 ],
                             ),
@@ -132,12 +160,19 @@ def create_layout(bridge=None):
                                 className="bg-dark text-light",
                                 selected_className="bg-primary",
                                 children=[
-                                    _create_tab_layout(
-                                        tab_id="ind",
-                                        title="Technical Indicators",
-                                        subtitle=(
-                                            "Build and cache indicator " "calculations"
-                                        ),
+                                    html.Div(
+                                        className="p-4",
+                                        children=[
+                                            html.H3(
+                                                "Technical Indicators",
+                                                className="text-light mb-1",
+                                            ),
+                                            html.P(
+                                                "Build and cache indicator calculations",
+                                                className="text-muted mb-4",
+                                            ),
+                                            create_indicators_panel(),
+                                        ],
                                     )
                                 ],
                             ),
@@ -150,13 +185,19 @@ def create_layout(bridge=None):
                                 className="bg-dark text-light",
                                 selected_className="bg-primary",
                                 children=[
-                                    _create_tab_layout(
-                                        tab_id="bt",
-                                        title="Strategy Backtesting",
-                                        subtitle=(
-                                            "Run backtests and analyze "
-                                            "performance metrics"
-                                        ),
+                                    html.Div(
+                                        className="p-4",
+                                        children=[
+                                            html.H3(
+                                                "Strategy Backtesting",
+                                                className="text-light mb-1",
+                                            ),
+                                            html.P(
+                                                "Run backtests and analyze performance metrics",
+                                                className="text-muted mb-4",
+                                            ),
+                                            create_backtest_panel(),
+                                        ],
                                     )
                                 ],
                             ),
@@ -169,13 +210,19 @@ def create_layout(bridge=None):
                                 className="bg-dark text-light",
                                 selected_className="bg-primary",
                                 children=[
-                                    _create_tab_layout(
-                                        tab_id="opt",
-                                        title="Parameter Optimization",
-                                        subtitle=(
-                                            "Parameter sweeps and "
-                                            "optimization heatmaps"
-                                        ),
+                                    html.Div(
+                                        className="p-4",
+                                        children=[
+                                            html.H3(
+                                                "Parameter Optimization",
+                                                className="text-light mb-1",
+                                            ),
+                                            html.P(
+                                                "Parameter sweeps and optimization heatmaps",
+                                                className="text-muted mb-4",
+                                            ),
+                                            create_optimization_panel(),
+                                        ],
                                     )
                                 ],
                             ),
