@@ -1,7 +1,7 @@
 # PROMPT 9 - Statistiques finales
 
-**Date**: 2025-01-XX  
-**Module**: ThreadX CLI  
+**Date**: 2025-01-XX
+**Module**: ThreadX CLI
 **Statut**: ✅ **TERMINÉ**
 
 ---
@@ -298,7 +298,7 @@ engine = Engine()
 
 **Module CLI ThreadX: Production-ready** 🚀
 
-**Auteur**: ThreadX Framework  
-**Version**: 1.0.0  
-**Date**: 2025-01-XX  
+**Auteur**: ThreadX Framework
+**Version**: 1.0.0
+**Date**: 2025-01-XX
 **Prompt**: P9 - CLI Bridge Interface
