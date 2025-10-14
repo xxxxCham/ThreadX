@@ -2,17 +2,30 @@
 ThreadX UI Components Package
 =============================
 
-Package pour composants Dash réutilisables.
-Sera peuplé en P5-P6 avec:
-    - data_manager.py
-    - indicators_panel.py
-    - backtest_panel.py
-    - optimization_panel.py
+Composants Dash modulaires pour l'interface utilisateur ThreadX.
+
+Modules disponibles:
+    - data_manager: Panel de gestion des données
+    - indicators_panel: Panel de configuration des indicateurs
+    - backtest_panel: Panel de backtesting
+    - optimization_panel: Panel d'optimisation
 
 Author: ThreadX Framework
-Version: Prompt 4 - Layout Principal
+Version: Prompt 6 - Composants Backtest + Optimization
 """
 
-__all__ = []
+from threadx.ui.components.backtest_panel import create_backtest_panel
+from threadx.ui.components.data_manager import create_data_manager_panel
+from threadx.ui.components.indicators_panel import (
+    create_indicators_panel
+)
+from threadx.ui.components.optimization_panel import (
+    create_optimization_panel
+)
 
-__version__ = "0.1.0"
+__all__ = [
+    "create_data_manager_panel",
+    "create_indicators_panel",
+    "create_backtest_panel",
+    "create_optimization_panel",
+]
