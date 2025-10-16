@@ -1,0 +1,47 @@
+# ThreadX - Development and Audit Tools Requirements
+# =======================================================
+# Ces outils sont requis pour l'audit et le développement de qualité
+
+# === Outils d'Analyse Statique ===
+pylint>=3.0.0            # Analyse de code complète
+flake8>=7.0.0            # Vérification PEP8 et erreurs
+mypy>=1.8.0              # Vérification de types
+bandit>=1.7.0            # Analyse de sécurité
+black>=24.0.0            # Formateur de code
+isort>=5.13.0            # Tri des imports
+
+# === Outils de Qualité ===
+radon>=6.0.0             # Complexité cyclomatique
+coverage>=7.4.0          # Couverture de tests
+pytest-cov>=4.1.0        # Plugin coverage pour pytest
+pylint-django>=2.5.0     # Extensions Django pour pylint
+
+# === Outils de Documentation ===
+sphinx>=7.2.0            # Génération de documentation
+sphinx-rtd-theme>=2.0.0  # Theme Read The Docs
+
+# === Pre-commit Hooks ===
+pre-commit>=3.6.0        # Framework de pre-commit hooks
+
+# === Outils de Performance ===
+memory-profiler>=0.61.0  # Profilage mémoire
+line-profiler>=4.1.0     # Profilage ligne par ligne
+py-spy>=0.3.0            # Profiler bas niveau
+
+# === Outils de Tests ===
+pytest-xdist>=3.5.0      # Tests parallèles
+pytest-timeout>=2.2.0    # Timeout pour tests
+pytest-mock>=3.12.0      # Mocking facilité
+hypothesis>=6.98.0       # Property-based testing
+
+# === Outils de Sécurité ===
+safety>=3.0.0            # Vérification des vulnérabilités
+pip-audit>=2.7.0         # Audit des dépendances
+
+# === Outils de Complexité ===
+mccabe>=0.7.0            # Complexité McCabe
+xenon>=0.9.0             # Monitoring de complexité
+
+# === Outils d'Import ===
+autoflake>=2.2.0         # Nettoyage imports inutilisés
+pyupgrade>=3.15.0        # Mise à jour syntaxe Python

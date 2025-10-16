@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests complets pour le contrat UDFI 
 """
 import pytest
