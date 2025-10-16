@@ -88,29 +88,34 @@ def async_runner(
     start_time = time.time()
     attempts = 0
 
-    while (time.time() - start_time) < timeout:
-        attempts += 1
+    try:
+        while (time.time() - start_time) < timeout:
+            attempts += 1
 
-        try:
-            event = func(task_id, timeout=poll_interval)
+            try:
+                event = func(task_id, timeout=poll_interval)
 
-            if event is not None:
-                elapsed = time.time() - start_time
-                logger.debug(
-                    f"Task {task_id} completed after {attempts} attempts "
-                    f"({elapsed:.2f}s)"
-                )
-                return event
+                if event is not None:
+                    elapsed = time.time() - start_time
+                    logger.debug(
+                        f"Task {task_id} completed after {attempts} attempts "
+                        f"({elapsed:.2f}s)"
+                    )
+                    return event
 
-            # No event yet, continue polling
-            time.sleep(poll_interval)
+                # No event yet, continue polling
+                time.sleep(poll_interval)
 
-        except KeyboardInterrupt:
-            logger.warning("Polling interrupted by user (Ctrl+C)")
-            return None
-        except Exception as e:
-            logger.error(f"Error polling task {task_id}: {e}")
-            return {"status": "error", "error": str(e)}
+            except KeyboardInterrupt:
+                # FIX A3: Propagate pour cleanup externe
+                logger.warning("Polling interrupted by user (Ctrl+C)")
+                raise
+            except Exception as e:
+                logger.error(f"Error polling task {task_id}: {e}")
+                return {"status": "error", "error": str(e)}
+    finally:
+        # FIX A3: Garantir cleanup même si exception
+        logger.debug(f"Polling loop exited for task {task_id}")
 
     # Timeout reached
     logger.warning(f"Task {task_id} timed out after {timeout}s ({attempts} attempts)")

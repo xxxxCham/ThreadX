@@ -60,9 +60,9 @@ class Timer:
         self.use_gpu = use_gpu and CUPY_AVAILABLE
         self.synchronize = synchronize
         self.last_elapsed = 0.0
-        self._start_time = 0
-        self._start_event = None
-        self._end_event = None
+        self._start_time: float = 0.0
+        self._start_event: Optional[Any] = None
+        self._end_event: Optional[Any] = None
 
     def start(self) -> None:
         """Démarre le chronomètre."""
@@ -72,7 +72,8 @@ class Timer:
             if cp is not None:
                 self._start_event = cp.cuda.Event()
                 self._end_event = cp.cuda.Event()
-                self._start_event.record()
+                if self._start_event is not None:
+                    self._start_event.record()
         else:
             self._start_time = time.perf_counter()
 
@@ -83,7 +84,12 @@ class Timer:
         Returns:
             Temps écoulé en secondes
         """
-        if self.use_gpu and cp is not None:
+        if (
+            self.use_gpu
+            and cp is not None
+            and self._end_event is not None
+            and self._start_event is not None
+        ):
             self._end_event.record()
             self._end_event.synchronize()
             self.last_elapsed = self._end_event.elapsed_time(self._start_event) / 1000.0
@@ -419,20 +425,8 @@ except Exception:  # fallback no-op
             # no-op: on pourrait logger si besoin
 
 
-# Back-compat export
-try:
-    from threadx.backtest.performance import PerformanceMetrics  # noqa: F401
-except Exception:
-
-    class PerformanceMetrics:  # type: ignore
-        def __init__(self, *a, **k):
-            pass
-
-        def start(self, *a, **k):
-            pass
-
-        def stop(self, *a, **k):
-            pass
+# Back-compat export removed - PerformanceMetrics doesn't exist in performance.py
+# Users should import directly from their respective modules if needed
 
 
-__all__ = ["combined_measurement"]
+__all__ = ["combined_measurement", "Timer", "measure_throughput", "track_memory"]

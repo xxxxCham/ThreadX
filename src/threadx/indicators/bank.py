@@ -52,12 +52,21 @@ import logging
 import os
 import pickle
 import time
+import threading
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
+
+# FIX B1: File locking cross-platform
+import platform
+
+if platform.system() == "Windows":
+    import msvcrt
+else:
+    import fcntl
 
 # Import des calculateurs
 from .bollinger import BollingerBands, BollingerSettings
@@ -240,51 +249,75 @@ class CacheManager:
         symbol: str = "",
         timeframe: str = "",
     ) -> bool:
-        """Sauvegarde en cache avec métadonnées"""
+        """Sauvegarde en cache avec métadonnées
+
+        FIX B1: File locking pour éviter race conditions en écriture.
+        """
         cache_file = self._get_cache_filepath(cache_key, indicator_type)
         meta_file = self._get_metadata_filepath(cache_key, indicator_type)
+        lock_file = cache_file.with_suffix(".lock")
 
         try:
-            # Préparation DataFrame
-            if isinstance(result, tuple):
-                # Multiples arrays (ex: Bollinger upper, middle, lower)
-                df_data = {}
-                for i, arr in enumerate(result):
-                    df_data[f"result_{i}"] = arr
-                df = pd.DataFrame(df_data)
-            else:
-                # Single array (ex: ATR)
-                df = pd.DataFrame({"result_0": result})
+            # FIX B1: Acquire file lock (cross-platform)
+            with open(lock_file, "w") as lockf:
+                if platform.system() == "Windows":
+                    msvcrt.locking(lockf.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
-            # Sauvegarde Parquet avec compression
-            df.to_parquet(cache_file, compression="snappy", index=False)
+                # Préparation DataFrame
+                if isinstance(result, tuple):
+                    # Multiples arrays (ex: Bollinger upper, middle, lower)
+                    df_data = {}
+                    for i, arr in enumerate(result):
+                        df_data[f"result_{i}"] = arr
+                    df = pd.DataFrame(df_data)
+                else:
+                    # Single array (ex: ATR)
+                    df = pd.DataFrame({"result_0": result})
 
-            # Métadonnées
-            metadata = {
-                "cache_key": cache_key,
-                "indicator_type": indicator_type,
-                "params": params,
-                "symbol": symbol,
-                "timeframe": timeframe,
-                "created_at": time.time(),
-                "data_shape": df.shape,
-                "columns": list(df.columns),
-            }
+                # Sauvegarde Parquet avec compression
+                df.to_parquet(cache_file, compression="snappy", index=False)
 
-            # Checksum si activé
-            if self.settings.checksum_validation:
-                metadata["checksum"] = self._compute_file_checksum(cache_file)
+                # Métadonnées
+                metadata = {
+                    "cache_key": cache_key,
+                    "indicator_type": indicator_type,
+                    "params": params,
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "created_at": time.time(),
+                    "data_shape": df.shape,
+                    "columns": list(df.columns),
+                }
 
-            # Sauvegarde métadonnées
-            with open(meta_file, "w") as f:
-                json.dump(metadata, f, indent=2)
+                # Checksum si activé
+                if self.settings.checksum_validation:
+                    metadata["checksum"] = self._compute_file_checksum(cache_file)
 
-            logger.debug(f"💾 Cache sauvé: {cache_key}")
-            return True
+                # Sauvegarde métadonnées
+                with open(meta_file, "w") as f:
+                    json.dump(metadata, f, indent=2)
 
+                logger.debug(f"💾 Cache sauvé: {cache_key}")
+
+                # Lock released automatically on file close
+                return True
+
+        except (IOError, OSError) as e:
+            # Lock conflict ou erreur I/O
+            logger.warning(f"⚠️ Cache write conflict {cache_key}: {e}")
+            return False
         except Exception as e:
             logger.error(f"❌ Erreur sauvegarde cache {cache_key}: {e}")
             return False
+        finally:
+            # Cleanup lock file
+            if lock_file.exists():
+                try:
+                    lock_file.unlink()
+                except Exception:  # FIX: Permission denied ou autres
+                    pass
 
     def cleanup_expired(self) -> int:
         """Nettoyage cache expiré"""

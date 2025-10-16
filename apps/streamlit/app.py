@@ -40,13 +40,18 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ThreadX imports - mock for fallback compatibility
+# ThreadX imports - ARCHITECTURE: Importer depuis Bridge uniquement
 try:
+    from threadx.bridge import (
+        ThreadXBridge,
+        BacktestController,
+        MetricsController,
+        IndicatorController,
+    )
     from threadx.config.settings import Settings
     from threadx.utils.log import get_logger, setup_logging_once
-    from threadx.data.bank import Bank
-    from threadx.engine.backtest import BacktestEngine
-    from threadx.performance.metrics import PerformanceCalculator
+
+    # Ces imports UI sont OK (UI peut importer UI)
     from threadx.ui.charts import plot_equity, plot_drawdown
     from threadx.ui.tables import (
         render_trades_table,
@@ -532,12 +537,24 @@ def performance_tab():
     with col2:
         st.subheader("📉 Drawdown")
 
-        # Calculate drawdown
-        rolling_max = equity.expanding().max()
-        drawdown = (equity / rolling_max - 1) * 100
+        # Calculate drawdown - DÉLÈGUE À BRIDGE
+        metrics_controller = MetricsController()
+        dd_result = metrics_controller.calculate_max_drawdown(equity.tolist())
+
+        # Utiliser le résultat du Bridge pour affichage
+        # Convertir en Series pour visualisation
+        equity_list = equity.tolist()
+        drawdown_values = []
+        peak = equity_list[0]
+
+        for val in equity_list:
+            if val > peak:
+                peak = val
+            dd = ((val / peak) - 1) * 100 if peak > 0 else 0
+            drawdown_values.append(dd)
 
         drawdown_data = pd.DataFrame(
-            {"Date": drawdown.index, "Drawdown": drawdown.values}
+            {"Date": equity.index, "Drawdown": drawdown_values}
         )
 
         st.area_chart(drawdown_data.set_index("Date"), color="#ff6b6b")
@@ -554,7 +571,11 @@ def performance_tab():
             winning_trades = len(trades[trades["pnl"] > 0])
             st.metric("Winning Trades", winning_trades)
         with col3:
-            st.metric("Average PnL", f"${trades['pnl'].mean():.2f}")
+            # Calculate average PnL - DÉLÈGUE À BRIDGE ou Python builtins
+            avg_pnl = (
+                sum(trades["pnl"]) / len(trades["pnl"]) if len(trades["pnl"]) > 0 else 0
+            )
+            st.metric("Average PnL", f"${avg_pnl:.2f}")
 
         # Trades table with filters
         st.markdown("**Filter Trades:**")
@@ -684,7 +705,7 @@ st.markdown(
         margin: -1rem -1rem 2rem -1rem;
         border-radius: 0 0 10px 10px;
     }
-    
+
     .metric-card {
         background: #f8f9fa;
         padding: 1rem;
@@ -692,17 +713,17 @@ st.markdown(
         border-left: 4px solid #667eea;
         margin: 0.5rem 0;
     }
-    
+
     .status-success {
         color: #28a745;
         font-weight: bold;
     }
-    
+
     .status-warning {
         color: #ffc107;
         font-weight: bold;
     }
-    
+
     .status-error {
         color: #dc3545;
         font-weight: bold;

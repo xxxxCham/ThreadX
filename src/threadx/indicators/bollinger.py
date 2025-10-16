@@ -59,7 +59,7 @@ try:
         cp.cuda.Device(0).use()
         GPU_AVAILABLE = True
         N_GPUS = cp.cuda.runtime.getDeviceCount()
-    except:
+    except Exception:
         GPU_AVAILABLE = False
         N_GPUS = 0
 except ImportError:
@@ -170,8 +170,8 @@ class GPUManager:
 
     def __init__(self, settings: BollingerSettings):
         self.settings = settings
-        self.available_gpus = []
-        self.gpu_capabilities = {}
+        self.available_gpus: list[int] = []
+        self.gpu_capabilities: dict[int, dict[str, Any]] = {}
 
         if HAS_CUPY and GPU_AVAILABLE:
             self._detect_gpus()
@@ -234,7 +234,7 @@ class BollingerBands:
     def __init__(self, settings: Optional[BollingerSettings] = None):
         self.settings = settings or BollingerSettings()
         self.gpu_manager = GPUManager(self.settings)
-        self._cache = {}  # Cache pour SMA réutilisables
+        self._cache: dict[str, Any] = {}  # Cache pour SMA réutilisables
 
         logger.info(
             f"🎯 Bollinger Bands initialisé - GPU: {GPU_AVAILABLE}, Multi-GPU: {len(self.gpu_manager.available_gpus)}"
@@ -413,7 +413,11 @@ class BollingerBands:
                 results[key] = self.compute(close, period=period, std=std)
             except Exception as e:
                 logger.error(f"❌ Erreur paramètre {key}: {e}")
-                results[key] = None
+                results[key] = (
+                    np.array([]),
+                    np.array([]),
+                    np.array([]),
+                )  # Tuple vide au lieu de None
 
         elapsed = time.time() - start_time
         success_count = sum(1 for r in results.values() if r is not None)
@@ -478,7 +482,11 @@ class BollingerBands:
 
                     except Exception as e:
                         logger.error(f"❌ GPU {gpu_id} erreur {key}: {e}")
-                        results[key] = None
+                        results[key] = (
+                            np.array([]),
+                            np.array([]),
+                            np.array([]),
+                        )  # Tuple vide au lieu de None
 
         return results
 
@@ -645,7 +653,7 @@ def benchmark_bollinger_performance(
             cpu_times.append(time.time() - start)
 
         cpu_avg = np.mean(cpu_times)
-        results["cpu_times"][size] = cpu_avg
+        results["cpu_times"][size] = float(cpu_avg)  # type: ignore
 
         # GPU timing si disponible
         if GPU_AVAILABLE:
@@ -656,15 +664,15 @@ def benchmark_bollinger_performance(
                 gpu_times.append(time.time() - start)
 
             gpu_avg = np.mean(gpu_times)
-            results["gpu_times"][size] = gpu_avg
-            results["speedups"][size] = cpu_avg / gpu_avg
+            results["gpu_times"][size] = float(gpu_avg)  # type: ignore
+            results["speedups"][size] = float(cpu_avg / gpu_avg)  # type: ignore
 
             logger.info(
                 f"   CPU: {cpu_avg:.4f}s, GPU: {gpu_avg:.4f}s, Speedup: {cpu_avg/gpu_avg:.2f}x"
             )
         else:
-            results["gpu_times"][size] = None
-            results["speedups"][size] = None
+            results["gpu_times"][size] = 0.0  # type: ignore
+            results["speedups"][size] = 0.0  # type: ignore
             logger.info(f"   CPU: {cpu_avg:.4f}s, GPU: N/A")
 
     return results

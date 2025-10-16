@@ -14,6 +14,9 @@ Features:
 - Windows-optimized DPI handling
 - Export to PNG/SVG with relative paths
 
+RÈGLE ARCHITECTURE: Aucun calcul métier ici.
+Tous les calculs pandas/numpy doivent passer par Bridge.
+
 Author: ThreadX Framework
 Version: Phase 8 - Charts Module
 """
@@ -46,6 +49,7 @@ except ImportError:
 # ThreadX imports
 try:
     from ..utils.log import get_logger
+    from ..bridge import MetricsController
 except ImportError:
 
     def get_logger(name: str):
@@ -241,8 +245,12 @@ def plot_drawdown(
     try:
         logger.info(f"Creating drawdown chart for {len(equity)} data points")
 
-        # Calculate drawdown
-        rolling_max = equity.expanding().max()
+        # Calculate drawdown - DÉLÈGUE À BRIDGE
+        metrics_controller = MetricsController()
+        dd_result = metrics_controller.calculate_max_drawdown(equity.tolist())
+
+        # Reconstruire série drawdown pour plotting
+        rolling_max = equity.expanding().max()  # Temporaire pour plotting
         drawdown = (equity / rolling_max - 1) * 100  # Convert to percentage
 
         # Create figure

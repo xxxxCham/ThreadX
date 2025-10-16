@@ -20,7 +20,7 @@ from typing import List, Dict, Any, Optional
 import logging
 
 from ..config import get_settings
-from ..data.ingest import IngestionManager
+from threadx.bridge import DataIngestionController
 
 
 class DataManagerPage(ttk.Frame):
@@ -38,7 +38,8 @@ class DataManagerPage(ttk.Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
         self.settings = get_settings()
-        self.ingestion_manager = IngestionManager(self.settings)
+        # ✅ FIXED: Use DataIngestionController from Bridge instead of direct IngestionManager
+        self.ingestion_controller = DataIngestionController()
 
         # Communication thread UI ↔ background
         self.log_queue = Queue()
@@ -313,19 +314,22 @@ class DataManagerPage(ttk.Frame):
                     ("progress", progress_pct, f"{status} ({current}/{total})")
                 )
 
-            # Téléchargement batch via IngestionManager
-            results = self.ingestion_manager.update_assets_batch(
+            # ✅ FIXED: Use ingest_batch from DataIngestionController (Bridge)
+            results = self.ingestion_controller.ingest_batch(
                 symbols=symbols,
                 timeframes=timeframes,
-                start=start,
-                end=end,
-                force=self.force_update.get(),
-                enable_verification=self.enable_verification.get(),
-                max_workers=4,
+                start_date=start.isoformat(),
+                end_date=end.isoformat(),
+                mode="batch" if len(symbols) > 1 else "single",
             )
 
             # Rapport final
-            summary = results["summary"]
+            summary = {
+                "success": results.get("success", False),
+                "files": results.get("files", []),
+                "errors": results.get("errors", []),
+                "count": results.get("count", 0),
+            }
             self.ui_logger.info("=== TÉLÉCHARGEMENT TERMINÉ ===")
             self.ui_logger.info(
                 f"Symboles traités: {summary['symbols_processed']}/{summary['symbols_requested']}"

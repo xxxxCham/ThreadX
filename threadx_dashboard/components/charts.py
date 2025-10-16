@@ -1,6 +1,9 @@
 """
 ThreadX Dashboard - Composants de graphiques
 Gère tous les graphiques de visualisation pour le backtesting
+
+RÈGLE ARCHITECTURE: Aucun calcul métier ici.
+Tous les calculs pandas/numpy doivent passer par Bridge.
 """
 
 import plotly.graph_objects as go
@@ -9,6 +12,9 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Optional, Any
+
+# Import Bridge pour déléguer calculs métier
+from threadx.bridge import MetricsController
 
 
 class PriceAndSignalsChart:
@@ -229,9 +235,14 @@ class TradingVolumeChart:
                 )
             )
 
-        # Moyenne mobile
+        # Moyenne mobile - DÉLÈGUE À BRIDGE
         if len(volumes) >= ma_period:
-            ma_values = pd.Series(volumes).rolling(window=ma_period).mean()
+            metrics_controller = MetricsController()
+            ma_values_list = metrics_controller.calculate_moving_average(
+                volumes, period=ma_period, ma_type="sma"
+            )
+            ma_values = pd.Series(ma_values_list, index=dates)
+
             fig.add_trace(
                 go.Scatter(
                     x=dates,

@@ -3,7 +3,7 @@ ThreadX Sweep UI - Optimisation Paramétrique Intégrée
 ======================================================
 
 Interface d'optimisation paramétrique utilisant le moteur unifié ThreadX.
-Intégration complète avec IndicatorBank, BacktestEngine et PerformanceCalculator.
+Utilise le Bridge pour accès au moteur d'optimisation.
 
 Features:
 - Configuration de grilles paramétriques (Bollinger, ATR, MA)
@@ -16,6 +16,7 @@ Features:
 Author: ThreadX Framework
 Version: Phase 10 - Parametric Sweeps Integration
 """
+
 # type: ignore  # Trop d'erreurs de type, analyse désactivée
 
 import tkinter as tk
@@ -29,8 +30,8 @@ import pandas as pd
 from pathlib import Path
 import logging
 
-from ..optimization.engine import UnifiedOptimizationEngine, DEFAULT_SWEEP_CONFIG
-from ..indicators.bank import IndicatorBank
+# ✅ FIXED: Import from Bridge only, not direct Engine
+from threadx.bridge import SweepController, SweepRequest, DEFAULT_SWEEP_CONFIG
 from ..utils.log import get_logger
 
 logger = get_logger(__name__)
@@ -40,26 +41,15 @@ class SweepOptimizationPage(ttk.Frame):
     """
     Page d'optimisation paramétrique pour sweeps multi-indicateurs.
 
-    Utilise le moteur UnifiedOptimizationEngine qui centralise tous les calculs
-    via IndicatorBank pour garantir la cohérence et éviter la duplication.
+    Utilise le Bridge SweepController qui orchestre l'Engine d'optimisation.
     """
 
-    def __init__(
-        self, parent, indicator_bank: Optional[IndicatorBank] = None, **kwargs
-    ):
+    def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
 
-        self.indicator_bank = indicator_bank or IndicatorBank()
-
-        # Moteur d'optimisation unifié
-        try:
-            self.optimization_engine = UnifiedOptimizationEngine(
-                indicator_bank=self.indicator_bank, max_workers=4
-            )
-            logger.info("✅ UnifiedOptimizationEngine initialisé")
-        except Exception as e:
-            logger.error(f"❌ Erreur initialisation moteur: {e}")
-            self.optimization_engine = None
+        # ✅ FIXED: Initialize Bridge controller instead of direct Engine
+        self.sweep_controller = SweepController()
+        logger.info("✅ SweepController initialisé via Bridge")
 
         # Communication thread ↔ UI
         self.progress_queue = Queue()
@@ -909,8 +899,6 @@ class SweepOptimizationPage(ttk.Frame):
         self.after(100, self.check_queues)
 
 
-def create_sweep_page(
-    parent, indicator_bank: Optional[IndicatorBank] = None
-) -> SweepOptimizationPage:
+def create_sweep_page(parent) -> SweepOptimizationPage:
     """Factory pour créer la page d'optimisation."""
-    return SweepOptimizationPage(parent, indicator_bank)
+    return SweepOptimizationPage(parent)

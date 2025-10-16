@@ -140,7 +140,8 @@ class ThreadXBridge:
 
         # Queue thread-safe : événements résultats
         # Format: (event_type, task_id, payload)
-        self.results_queue: Queue[tuple[str, str, Any]] = Queue()
+        # FIX B3: Queue bornée pour éviter memory overflow
+        self.results_queue: Queue[tuple[str, str, Any]] = Queue(maxsize=1000)
 
         # Lock : protection active_tasks
         self.state_lock = threading.Lock()
@@ -201,12 +202,8 @@ class ThreadXBridge:
         if task_id is None:
             task_id = _generate_task_id()
 
-        # Validation basique
-        if self.config.validate_requests and not req.validate():
-            raise BridgeError(
-                f"Invalid BacktestRequest for task {task_id}: "
-                f"missing required fields"
-            )
+        # Validation automatique via Pydantic BaseModel
+        # L'objet req est déjà validé à la création
 
         logger.info(
             f"Task {task_id} submitted: backtest "
@@ -259,8 +256,8 @@ class ThreadXBridge:
         if task_id is None:
             task_id = _generate_task_id()
 
-        if self.config.validate_requests and not req.validate():
-            raise BridgeError(f"Invalid IndicatorRequest for task {task_id}")
+        # Validation automatique via Pydantic BaseModel
+        # L'objet req est déjà validé à la création
 
         logger.info(
             f"Task {task_id} submitted: indicators "
@@ -310,8 +307,8 @@ class ThreadXBridge:
         if task_id is None:
             task_id = _generate_task_id()
 
-        if self.config.validate_requests and not req.validate():
-            raise BridgeError(f"Invalid SweepRequest for task {task_id}")
+        # Validation automatique via Pydantic BaseModel
+        # L'objet req est déjà validé à la création
 
         logger.info(
             f"Task {task_id} submitted: sweep "
@@ -442,17 +439,18 @@ class ThreadXBridge:
             >>> print(f"Workers actifs: {state['active_tasks']}")
 
         Thread-Safety:
-            Lecture active_tasks sous lock.
+            ✅ FIX #1: Toutes lectures sous lock pour éviter race condition
         """
         with self.state_lock:
             active_count = len(self.active_tasks)
+            queue_size = self.results_queue.qsize()  # ✅ DANS lock (FIX)
             total_submitted = self._task_counter
             total_completed = self._completed_tasks
             total_failed = self._failed_tasks
 
         return {
             "active_tasks": active_count,
-            "queue_size": self.results_queue.qsize(),
+            "queue_size": queue_size,  # ✅ Utilise queue_size du lock
             "max_workers": self.config.max_workers,
             "total_submitted": total_submitted,
             "total_completed": total_completed,
@@ -513,21 +511,26 @@ class ThreadXBridge:
 
         Thread-Safety:
             executor.shutdown() thread-safe nativement.
+
+        Fix A1: Remplace sleep loop par monitoring non-bloquant.
         """
         logger.info(f"Shutting down ThreadXBridge " f"(wait={wait}, timeout={timeout})")
 
         self.executor.shutdown(wait=wait, cancel_futures=not wait)
 
+        # FIX A1: Monitoring queue sans blocage actif
         if wait and timeout:
             start = time.time()
-            while self.results_queue.qsize() > 0:
-                if time.time() - start > timeout:
-                    logger.warning(
-                        f"Shutdown timeout: {self.results_queue.qsize()} "
-                        f"events still in queue"
-                    )
-                    break
-                time.sleep(0.1)
+            while self.results_queue.qsize() > 0 and (time.time() - start) < timeout:
+                try:
+                    # Non-blocking drain avec timeout court
+                    self.results_queue.get(block=False)
+                except Exception:  # FIX: Empty queue ou autres exceptions
+                    break  # Queue vide
+
+            remaining = self.results_queue.qsize()
+            if remaining > 0:
+                logger.warning(f"Shutdown: {remaining} events non traités dans queue")
 
         logger.info("ThreadXBridge shutdown complete")
 
@@ -535,20 +538,64 @@ class ThreadXBridge:
     # INTERNAL : Wrapped Workers (executed in ThreadPoolExecutor)
     # ═══════════════════════════════════════════════════════════════
 
+    def _finalize_task_result(
+        self,
+        task_id: str,
+        result: Any | None,
+        error: Exception | None,
+        event_type_success: str,
+        callback: Callable | None = None,
+    ) -> None:
+        """✅ FIX #2: Finalise une tâche de manière thread-safe.
+
+        Centralise logique pour éviter deadlock et race conditions:
+        1. Enqueue résultat (toujours)
+        2. Update compteurs
+        3. Cleanup active_tasks
+        4. Appel callback (hors lock, non-bloquant)
+
+        Args:
+            task_id: Identifiant tâche
+            result: Résultat si succès, None si erreur
+            error: Exception si erreur, None si succès
+            event_type_success: Type d'événement succès (ex: 'backtest_done')
+            callback: Callback optionnel utilisateur
+        """
+        # ✅ Tout sous lock (rapide) - évite deadlock
+        with self.state_lock:
+            if error:
+                error_msg = f"{error.__class__.__name__}: {str(error)}"
+                self.results_queue.put(("error", task_id, error_msg))
+                self._failed_tasks += 1
+            else:
+                self.results_queue.put((event_type_success, task_id, result))
+                self._completed_tasks += 1
+
+            # Cleanup
+            self.active_tasks.pop(task_id, None)
+
+        # ✅ Callback hors lock (peut être lent/bloquant)
+        if callback:
+            try:
+                if error:
+                    callback(None, error)
+                else:
+                    callback(result, None)
+            except Exception as cb_err:
+                logger.error(f"Task {task_id} callback error: {cb_err}")
+
     def _run_backtest_wrapped(
         self,
         req: BacktestRequest,
         callback: Callable[[BacktestResult | None, Exception | None], None] | None,
         task_id: str,
     ) -> BacktestResult:
-        """Wrapper backtest exécuté dans thread worker.
+        """✅ FIX #2: Wrapper backtest simplifié avec helper _finalize_task_result.
 
-        Workflow:
+        Workflow optimisé:
             1. Appelle BacktestController.run_backtest(req)
-            2. Enqueue résultat en results_queue
-            3. Exécute callback si fourni
-            4. Gère exceptions → BridgeError en queue
-            5. Cleanup active_tasks (finally)
+            2. Utilise _finalize_task_result() pour enqueue + cleanup
+            3. Helper gère callback hors lock (non-bloquant)
 
         Args:
             req: BacktestRequest validée.
@@ -559,19 +606,18 @@ class ThreadXBridge:
             BacktestResult pour Future.result().
 
         Raises:
-            Re-raise exception après enqueue pour Future.
+            Re-raise exception après finalization pour Future.
 
         Thread-Safety:
-            Cleanup active_tasks sous lock.
+            ✅ Utilise _finalize_task_result pour éviter deadlock et race conditions
         """
         start_time = time.time()
+        result = None
+        error = None
 
         try:
             logger.info(f"Task {task_id} executing: backtest started")
-
-            # Appel controller (peut lever BacktestError)
             result = self.controllers["backtest"].run_backtest(req)
-
             exec_time = time.time() - start_time
             logger.info(
                 f"Task {task_id} completed: backtest "
@@ -579,62 +625,23 @@ class ThreadXBridge:
                 f"sharpe={result.sharpe_ratio:.2f})"
             )
 
-            # Enqueue succès
-            self.results_queue.put(("backtest_done", task_id, result))
-
-            # Callback succès
-            if callback:
-                try:
-                    callback(result, None)
-                except Exception as cb_err:
-                    logger.error(f"Task {task_id} callback error: {cb_err}")
-
-            # Compteur succès
-            with self.state_lock:
-                self._completed_tasks += 1
-
-            return result
-
-        except BridgeError as e:
-            # Erreur attendue
-            logger.error(f"Task {task_id} BridgeError: {e}")
-            error_msg = f"BridgeError: {str(e)}"
-
-            self.results_queue.put(("error", task_id, error_msg))
-
-            if callback:
-                try:
-                    callback(None, e)
-                except Exception as cb_err:
-                    logger.error(f"Task {task_id} callback error: {cb_err}")
-
-            with self.state_lock:
-                self._failed_tasks += 1
-
-            raise  # Re-raise pour Future
-
         except Exception as e:
-            # Erreur non prévue
-            logger.exception(f"Task {task_id} unexpected error")
-            error_msg = f"InternalError: {str(e)}"
+            logger.exception(f"Task {task_id} backtest error")
+            error = e
 
-            self.results_queue.put(("error", task_id, error_msg))
+        # ✅ Finalize avec helper (thread-safe, évite deadlock)
+        self._finalize_task_result(
+            task_id=task_id,
+            result=result,
+            error=error,
+            event_type_success="backtest_done",
+            callback=callback,
+        )
 
-            if callback:
-                try:
-                    callback(None, e)
-                except Exception as cb_err:
-                    logger.error(f"Task {task_id} callback error: {cb_err}")
+        if error:
+            raise error
 
-            with self.state_lock:
-                self._failed_tasks += 1
-
-            raise  # Re-raise pour Future
-
-        finally:
-            # Cleanup active_tasks (thread-safe)
-            with self.state_lock:
-                self.active_tasks.pop(task_id, None)
+        return result
 
     def _run_indicator_wrapped(
         self,
@@ -642,11 +649,13 @@ class ThreadXBridge:
         callback: Callable[[IndicatorResult | None, Exception | None], None] | None,
         task_id: str,
     ) -> IndicatorResult:
-        """Wrapper indicateurs exécuté dans thread worker.
+        """✅ FIX #2: Wrapper indicateurs simplifié avec helper.
 
-        Même pattern que _run_backtest_wrapped.
+        Utilise _finalize_task_result() pour éviter deadlock et race conditions.
         """
         start_time = time.time()
+        result = None
+        error = None
 
         try:
             logger.info(f"Task {task_id} executing: indicators started")
@@ -660,39 +669,23 @@ class ThreadXBridge:
                 f"cache_hits={result.cache_hits})"
             )
 
-            self.results_queue.put(("indicator_done", task_id, result))
-
-            if callback:
-                try:
-                    callback(result, None)
-                except Exception as cb_err:
-                    logger.error(f"Task {task_id} callback error: {cb_err}")
-
-            with self.state_lock:
-                self._completed_tasks += 1
-
-            return result
-
         except Exception as e:
             logger.exception(f"Task {task_id} indicator error")
-            error_msg = f"IndicatorError: {str(e)}"
+            error = e
 
-            self.results_queue.put(("error", task_id, error_msg))
+        # ✅ Finalize avec helper
+        self._finalize_task_result(
+            task_id=task_id,
+            result=result,
+            error=error,
+            event_type_success="indicator_done",
+            callback=callback,
+        )
 
-            if callback:
-                try:
-                    callback(None, e)
-                except Exception:
-                    pass
+        if error:
+            raise error
 
-            with self.state_lock:
-                self._failed_tasks += 1
-
-            raise
-
-        finally:
-            with self.state_lock:
-                self.active_tasks.pop(task_id, None)
+        return result
 
     def _run_sweep_wrapped(
         self,
@@ -700,11 +693,13 @@ class ThreadXBridge:
         callback: Callable[[SweepResult | None, Exception | None], None] | None,
         task_id: str,
     ) -> SweepResult:
-        """Wrapper sweep exécuté dans thread worker.
+        """✅ FIX #2: Wrapper sweep simplifié avec helper.
 
-        Même pattern que _run_backtest_wrapped.
+        Utilise _finalize_task_result() pour éviter deadlock et race conditions.
         """
         start_time = time.time()
+        result = None
+        error = None
 
         try:
             logger.info(f"Task {task_id} executing: sweep started")
@@ -718,39 +713,23 @@ class ThreadXBridge:
                 f"best_sharpe={result.best_sharpe:.2f})"
             )
 
-            self.results_queue.put(("sweep_done", task_id, result))
-
-            if callback:
-                try:
-                    callback(result, None)
-                except Exception as cb_err:
-                    logger.error(f"Task {task_id} callback error: {cb_err}")
-
-            with self.state_lock:
-                self._completed_tasks += 1
-
-            return result
-
         except Exception as e:
             logger.exception(f"Task {task_id} sweep error")
-            error_msg = f"SweepError: {str(e)}"
+            error = e
 
-            self.results_queue.put(("error", task_id, error_msg))
+        # ✅ Finalize avec helper
+        self._finalize_task_result(
+            task_id=task_id,
+            result=result,
+            error=error,
+            event_type_success="sweep_done",
+            callback=callback,
+        )
 
-            if callback:
-                try:
-                    callback(None, e)
-                except Exception:
-                    pass
+        if error:
+            raise error
 
-            with self.state_lock:
-                self._failed_tasks += 1
-
-            raise
-
-        finally:
-            with self.state_lock:
-                self.active_tasks.pop(task_id, None)
+        return result
 
     def _validate_data_wrapped(
         self,
@@ -760,11 +739,13 @@ class ThreadXBridge:
         ),
         task_id: str,
     ) -> DataValidationResult:
-        """Wrapper validation données exécuté dans thread worker.
+        """✅ FIX #2: Wrapper validation données simplifié avec helper.
 
-        Même pattern que _run_backtest_wrapped.
+        Utilise _finalize_task_result() pour éviter deadlock et race conditions.
         """
         start_time = time.time()
+        result = None
+        error = None
 
         try:
             logger.info(f"Task {task_id} executing: data validation started")
@@ -778,36 +759,20 @@ class ThreadXBridge:
                 f"quality={result.quality_score:.1f}/10)"
             )
 
-            self.results_queue.put(("data_validated", task_id, result))
-
-            if callback:
-                try:
-                    callback(result, None)
-                except Exception as cb_err:
-                    logger.error(f"Task {task_id} callback error: {cb_err}")
-
-            with self.state_lock:
-                self._completed_tasks += 1
-
-            return result
-
         except Exception as e:
             logger.exception(f"Task {task_id} data validation error")
-            error_msg = f"DataError: {str(e)}"
+            error = e
 
-            self.results_queue.put(("error", task_id, error_msg))
+        # ✅ Finalize avec helper
+        self._finalize_task_result(
+            task_id=task_id,
+            result=result,
+            error=error,
+            event_type_success="data_validated",
+            callback=callback,
+        )
 
-            if callback:
-                try:
-                    callback(None, e)
-                except Exception:
-                    pass
+        if error:
+            raise error
 
-            with self.state_lock:
-                self._failed_tasks += 1
-
-            raise
-
-        finally:
-            with self.state_lock:
-                self.active_tasks.pop(task_id, None)
+        return result

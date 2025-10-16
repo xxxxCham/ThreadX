@@ -1,6 +1,9 @@
 """
 ThreadX Dashboard - Page de Backtesting
 Affiche les graphiques et résultats du backtesting avec interactions complètes
+
+RÈGLE ARCHITECTURE: Aucun calcul métier dans cette page.
+Tous les calculs pandas/numpy doivent passer par Bridge.
 """
 
 from dash import html, dcc, callback, Input, Output, State
@@ -12,6 +15,9 @@ from typing import Dict, Any, Optional
 
 from components.charts import ChartsManager
 from config import THEME
+
+# Import Bridge pour déléguer calculs métier
+from threadx.bridge import MetricsController
 
 
 # Initialiser ChartsManager
@@ -657,15 +663,14 @@ def calculate_metrics(data: Dict[str, Any]) -> Dict[str, float]:
     final_equity = equity_series.iloc[-1]
     total_return = (final_equity - initial_cash) / initial_cash
 
-    # Calcul du drawdown
-    peak = equity_series.expanding().max()
-    drawdown = (equity_series - peak) / peak
-    max_drawdown = drawdown.min()
+    # Calcul du drawdown - DÉLÈGUE À BRIDGE
+    metrics_controller = MetricsController()
+    dd_result = metrics_controller.calculate_max_drawdown(equity_series.tolist())
+    max_drawdown = dd_result["max_drawdown"]
 
-    # Calcul du Sharpe ratio (simplifié)
-    returns = equity_series.pct_change().dropna()
-    sharpe_ratio = (
-        returns.mean() / returns.std() * np.sqrt(252) if len(returns) > 1 else 0
+    # Calcul du Sharpe ratio - DÉLÈGUE À BRIDGE
+    sharpe_ratio = metrics_controller.calculate_sharpe_ratio(
+        equity_curve=equity_series.tolist()
     )
 
     return {

@@ -23,7 +23,7 @@ import time
 import logging
 
 from ..config import get_settings
-from ..data.ingest import IngestionManager
+from threadx.bridge import DataIngestionController
 from ..utils.log import get_logger
 
 logger = get_logger(__name__)
@@ -48,10 +48,11 @@ class DownloadsPage(ttk.Frame):
 
         try:
             self.settings = get_settings()
-            self.ingestion_manager = IngestionManager(self.settings)
+            # ✅ FIXED: Use DataIngestionController from Bridge instead of direct IngestionManager
+            self.ingestion_controller = DataIngestionController()
         except Exception as e:
-            logger.warning(f"⚠️ IngestionManager non disponible: {e}")
-            self.ingestion_manager = None
+            logger.warning(f"⚠️ DataIngestionController non disponible: {e}")
+            self.ingestion_controller = None
 
         # Communication thread ↔ UI
         self.log_queue = Queue()
@@ -452,31 +453,34 @@ class DownloadsPage(ttk.Frame):
         timeframes: List[str],
         params: Dict[str, Any],
     ):
-        """Téléchargement réel via IngestionManager."""
+        """Téléchargement réel via DataIngestionController."""
         try:
             # Téléchargement 1m (source truth)
             self.log_queue.put(f"   📥 Téléchargement 1m pour {symbol}")
 
-            # Note: Adaptation nécessaire selon l'API réelle d'IngestionManager
+            # Note: Adaptation nécessaire selon l'API réelle de DataIngestionController
             # Cette implémentation est un exemple qui devra être adapté
-            if self.ingestion_manager and hasattr(
-                self.ingestion_manager, "download_ohlcv_1m"
+            if self.ingestion_controller and hasattr(
+                self.ingestion_controller, "ingest_binance_single"
             ):
-                # Vérification des paramètres supportés
+                # Utilisation de la méthode Bridge
                 import inspect
 
-                sig = inspect.signature(self.ingestion_manager.download_ohlcv_1m)
+                sig = inspect.signature(self.ingestion_controller.ingest_binance_single)
 
-                kwargs = {"symbol": symbol, "start": start_date, "end": end_date}
+                kwargs = {
+                    "symbol": symbol,
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                }
 
-                # Ajout conditionnel de force_update si supporté
-                if "force_update" in sig.parameters:
-                    kwargs["force_update"] = params["force_update"]
+                # Appel via Bridge
+                result = self.ingestion_controller.ingest_binance_single(**kwargs)
 
-                df_1m = self.ingestion_manager.download_ohlcv_1m(**kwargs)
-
-                if df_1m is not None and not df_1m.empty:
-                    self.log_queue.put(f"   ✅ 1m téléchargé: {len(df_1m):,} barres")
+                if result and result.get("success"):
+                    self.log_queue.put(
+                        f"   ✅ 1m téléchargé: {result.get('count', 'N/A')} fichiers"
+                    )
 
                     # Génération des timeframes dérivés
                     for tf in timeframes:
@@ -487,7 +491,7 @@ class DownloadsPage(ttk.Frame):
                 else:
                     self.log_queue.put(f"   ⚠️ Aucune donnée 1m récupérée pour {symbol}")
             else:
-                self.log_queue.put(f"   ⚠️ Méthode download_ohlcv_1m non disponible")
+                self.log_queue.put(f"   ⚠️ Méthode ingest_binance_single non disponible")
 
         except Exception as e:
             self.log_queue.put(f"   ❌ Erreur téléchargement réel {symbol}: {e}")

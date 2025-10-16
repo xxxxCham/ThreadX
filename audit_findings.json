@@ -1,0 +1,143 @@
+{
+  "ui_violations": [
+    {
+      "file": "src\\threadx\\ui\\layout.py",
+      "violations": [],
+      "missing_bridge": [
+        {
+          "type": "MISSING_BRIDGE",
+          "description": "UI component without Bridge import",
+          "severity": "MEDIUM"
+        }
+      ],
+      "all_imports": [
+        "dash",
+        "threadx.ui.components.data_manager",
+        "threadx.ui.components.indicators_panel",
+        "threadx.ui.components.backtest_panel",
+        "threadx.ui.components.optimization_panel",
+        "dash_bootstrap_components"
+      ]
+    },
+    {
+      "file": "src\\threadx\\ui\\components\\backtest_panel.py",
+      "violations": [],
+      "missing_bridge": [
+        {
+          "type": "MISSING_BRIDGE",
+          "description": "UI component without Bridge import",
+          "severity": "MEDIUM"
+        }
+      ],
+      "all_imports": [
+        "dash",
+        "dash.development.base_component",
+        "dash_bootstrap_components",
+        "plotly.graph_objects"
+      ]
+    },
+    {
+      "file": "src\\threadx\\ui\\components\\data_manager.py",
+      "violations": [],
+      "missing_bridge": [
+        {
+          "type": "MISSING_BRIDGE",
+          "description": "UI component without Bridge import",
+          "severity": "MEDIUM"
+        }
+      ],
+      "all_imports": [
+        "dash",
+        "datetime",
+        "dash_bootstrap_components"
+      ]
+    },
+    {
+      "file": "src\\threadx\\ui\\components\\indicators_panel.py",
+      "violations": [],
+      "missing_bridge": [
+        {
+          "type": "MISSING_BRIDGE",
+          "description": "UI component without Bridge import",
+          "severity": "MEDIUM"
+        }
+      ],
+      "all_imports": [
+        "dash",
+        "dash_bootstrap_components"
+      ]
+    },
+    {
+      "file": "src\\threadx\\ui\\components\\optimization_panel.py",
+      "violations": [],
+      "missing_bridge": [
+        {
+          "type": "MISSING_BRIDGE",
+          "description": "UI component without Bridge import",
+          "severity": "MEDIUM"
+        }
+      ],
+      "all_imports": [
+        "dash",
+        "dash.development.base_component",
+        "dash_bootstrap_components",
+        "plotly.graph_objects"
+      ]
+    }
+  ],
+  "circular_risks": [
+    {
+      "file": "src\\threadx\\ui\\callbacks.py",
+      "issues": [
+        {
+          "type": "CIRCULAR_RISK",
+          "description": "UI importing from Bridge while Bridge imports from UI",
+          "severity": "HIGH"
+        }
+      ]
+    }
+  ],
+  "quality_issues": [
+    {
+      "file": "src\\threadx\\ui\\downloads.py",
+      "issues": [
+        {
+          "type": "CODE_QUALITY",
+          "pattern": "pass\\s*$",
+          "description": "Empty pass statement",
+          "severity": "LOW"
+        }
+      ]
+    },
+    {
+      "file": "src\\threadx\\ui\\sweep.py",
+      "issues": [
+        {
+          "type": "CODE_QUALITY",
+          "pattern": "pass\\s*$",
+          "description": "Empty pass statement",
+          "severity": "LOW"
+        }
+      ]
+    },
+    {
+      "file": "src\\threadx\\ui\\__init__.py",
+      "issues": [
+        {
+          "type": "CODE_QUALITY",
+          "pattern": "pass\\s*$",
+          "description": "Empty pass statement",
+          "severity": "LOW"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_ui_files": 21,
+    "total_engine_files": 30,
+    "violations_found": 0,
+    "high_severity": 1,
+    "medium_severity": 0,
+    "low_severity": 0
+  }
+}

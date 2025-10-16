@@ -156,30 +156,63 @@ class IngestionManager:
                 logger.info(f"Saved updated {symbol} 1m data: {len(final_df)} rows")
 
             # 6. Extraction plage demandée
-            # Filtrer selon date range (attention timezone)
-            try:
+            # ✅ FIX #3: Normalise timestamps vers UTC de manière déterministe
+            start_dt, end_dt = self._parse_timestamps_to_utc(start, end)
 
-                def to_utc_timestamp(x):
-                    ts = pd.to_datetime(x)
-                    # pd.Timestamp has .tz attribute in newer pandas
-                    if getattr(ts, "tz", None) is None:
-                        ts = ts.tz_localize("UTC")
-                    else:
-                        ts = ts.tz_convert("UTC")
-                    return ts
-
-                start_dt = to_utc_timestamp(start)
-                end_dt = to_utc_timestamp(end)
-            except Exception:
-                # Fallback simple conversion
-                start_dt = pd.to_datetime(start)
-                end_dt = pd.to_datetime(end)
+            # Ensure index is UTC-aware
+            if final_df.index.tz is None:
+                logger.warning(f"DataFrame index naive, localizing UTC for {symbol}")
+                final_df.index = final_df.index.tz_localize("UTC")
+            else:
+                final_df.index = final_df.index.tz_convert("UTC")
 
             mask = (final_df.index >= start_dt) & (final_df.index <= end_dt)
         result = final_df[mask].copy()
 
         logger.info(f"Returning {len(result)} rows for requested period")
         return result
+
+    def _parse_timestamps_to_utc(self, start, end) -> tuple[Any, Any]:
+        """✅ FIX #3: Parse et normalise timestamps vers UTC (déterministe).
+
+        Règles:
+        - Input naive → Localise UTC
+        - Input aware → Convertit UTC
+        - Output: toujours UTC-aware
+
+        Args:
+            start: Timestamp start (string, naive ou aware)
+            end: Timestamp end (string, naive ou aware)
+
+        Returns:
+            (start_utc, end_utc) - tuples de pd.Timestamp UTC-aware
+
+        Raises:
+            ValueError: Si parsing échoue
+        """
+        try:
+            start_ts = pd.to_datetime(start)
+            end_ts = pd.to_datetime(end)
+        except Exception as e:
+            raise ValueError(f"Failed to parse timestamps: {e}") from e
+
+        # Normaliser start
+        if start_ts.tz is None:
+            logger.debug(f"start={start} naive → localizing UTC")
+            start_ts = start_ts.tz_localize("UTC")
+        else:
+            logger.debug(f"start={start} tz={start_ts.tz} → converting UTC")
+            start_ts = start_ts.tz_convert("UTC")
+
+        # Normaliser end
+        if end_ts.tz is None:
+            logger.debug(f"end={end} naive → localizing UTC")
+            end_ts = end_ts.tz_localize("UTC")
+        else:
+            logger.debug(f"end={end} tz={end_ts.tz} → converting UTC")
+            end_ts = end_ts.tz_convert("UTC")
+
+        return start_ts, end_ts
 
     def resample_from_1m(self, df_1m: pd.DataFrame, timeframe: str) -> pd.DataFrame:
         """
@@ -687,6 +720,7 @@ def ingest_binance(
 
     Raises:
         IngestionError: Échec téléchargement/validation/sauvegarde
+        APIError: Erreur Binance API
 
     Example:
         >>> df = ingest_binance(
@@ -699,23 +733,39 @@ def ingest_binance(
     """
     manager = IngestionManager()
 
-    # Parse dates ISO
-    start_dt = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
-    end_dt = datetime.fromisoformat(end_iso.replace("Z", "+00:00"))
+    # ✅ Parse dates ISO avec gestion d'erreur
+    try:
+        start_dt = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(end_iso.replace("Z", "+00:00"))
+    except ValueError as e:
+        raise IngestionError(f"Invalid ISO date format: {e}")
 
     logger.info(f"🔽 Ingestion Binance: {symbol} {interval} ({start_iso} → {end_iso})")
 
-    # Téléchargement 1m truth
-    df_1m = manager.download_ohlcv_1m(symbol, start_dt, end_dt)
+    # ✅ Téléchargement 1m truth avec gestion d'erreur Binance
+    try:
+        df_1m = manager.download_ohlcv_1m(symbol, start_dt, end_dt)
+    except APIError as e:
+        logger.error(f"❌ Binance API error: {e.message} (code: {e.status_code})")
+        raise IngestionError(f"Binance API failed: {e.message}") from e
+    except Exception as e:
+        logger.error(f"❌ Unexpected error downloading {symbol}: {e}")
+        raise IngestionError(f"Data download failed: {str(e)}") from e
 
     if df_1m.empty:
-        raise IngestionError(f"No data downloaded for {symbol}")
+        raise IngestionError(
+            f"No data downloaded for {symbol} ({start_iso} to {end_iso})"
+        )
 
-    # Resample si nécessaire
-    if interval != "1m":
-        df_final = manager.resample_from_1m(df_1m, interval)
-    else:
-        df_final = df_1m.copy()
+    # ✅ Resample si nécessaire
+    try:
+        if interval != "1m":
+            df_final = manager.resample_from_1m(df_1m, interval)
+        else:
+            df_final = df_1m.copy()
+    except TimeframeError as e:
+        logger.error(f"❌ Resample error: {e}")
+        raise IngestionError(f"Resample failed: {str(e)}") from e
 
     # Validation UDFI
     if validate_udfi:

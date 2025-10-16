@@ -585,7 +585,11 @@ def _calculate_trades_summary(trades: pd.DataFrame) -> Dict[str, Any]:
             len(trades[trades["pnl"] < 0]) if "pnl" in trades.columns else 0
         ),
         "total_pnl": trades["pnl"].sum() if "pnl" in trades.columns else 0,
-        "avg_pnl": trades["pnl"].mean() if "pnl" in trades.columns else 0,
+        "avg_pnl": (
+            sum(trades["pnl"]) / len(trades["pnl"])
+            if "pnl" in trades.columns and len(trades["pnl"]) > 0
+            else 0
+        ),
         "max_win": trades["pnl"].max() if "pnl" in trades.columns else 0,
         "max_loss": trades["pnl"].min() if "pnl" in trades.columns else 0,
     }

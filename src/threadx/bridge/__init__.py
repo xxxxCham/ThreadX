@@ -74,6 +74,9 @@ from threadx.bridge.controllers import (
     DataController,
     IndicatorController,
     SweepController,
+    MetricsController,
+    DataIngestionController,
+    DiversityPipelineController,
 )
 
 # Exceptions (Error Handling)
@@ -89,6 +92,9 @@ from threadx.bridge.exceptions import (
 
 # Async Coordinator (Prompt 3)
 from threadx.bridge.async_coordinator import ThreadXBridge
+
+# Configuration Constants
+from threadx.bridge.config import DEFAULT_SWEEP_CONFIG
 
 # Public API exports
 __all__ = [
@@ -107,6 +113,9 @@ __all__ = [
     "IndicatorController",
     "SweepController",
     "DataController",
+    "MetricsController",
+    "DataIngestionController",
+    "DiversityPipelineController",
     # Exceptions
     "BridgeError",
     "BacktestError",
@@ -117,6 +126,8 @@ __all__ = [
     "ValidationError",
     # Async Coordinator (P3)
     "ThreadXBridge",
+    # Configuration
+    "DEFAULT_SWEEP_CONFIG",
 ]
 
 # Version info

@@ -37,9 +37,16 @@ from dash import Input, Output, State, callback, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 
 from threadx.bridge import (
+    BacktestController,
     BacktestRequest,
     BridgeError,
+    DataController,
+    DataIngestionController,
+    DataRequest,
+    IndicatorController,
     IndicatorRequest,
+    MetricsController,
+    SweepController,
     SweepRequest,
     ThreadXBridge,
 )
@@ -727,9 +734,9 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
     ):
         """Download OHLCV from Binance, validate UDFI, save to registry.
 
-        Pipeline:
+        Pipeline (via Bridge):
         1. Determine symbols based on mode (single/top/group)
-        2. Call ingest_batch from threadx.data.ingest
+        2. Call DataIngestionController.ingest_batch (NOT direct import)
         3. Update registry table with results
         4. Create preview candlestick chart
         5. Persist selections in global store
@@ -752,14 +759,12 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
             raise PreventUpdate
 
         try:
-            from threadx.data.ingest import ingest_batch, ingest_binance
-            from threadx.data.registry import (
-                scan_symbols,
-                file_checksum,
-                _build_dataset_path,
-            )
+            # ✅ Using Bridge imports from top of file
             import plotly.graph_objects as go
             from datetime import datetime
+
+            # Initialiser controller
+            ingest_controller = DataIngestionController()
 
             # Format dates to ISO 8601
             start_iso = f"{start_date}T00:00:00Z"
@@ -809,17 +814,28 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
             # Disable button during processing
             logger.info(f"🔽 Downloading {mode} mode: {symbols_or_group} ({timeframe})")
 
-            # Call ingest_batch (async via Bridge would be better, but direct for now)
-            results = ingest_batch(
-                mode=batch_mode,
-                symbols_or_group=symbols_or_group,
-                interval=timeframe,
-                start_iso=start_iso,
-                end_iso=end_iso,
-                max_workers=4,
-                validate_udfi=True,
-                save_to_registry=True,
-            )
+            # NOUVEAU: Call via Bridge (pas import direct)
+            if batch_mode == "single":
+                result = ingest_controller.ingest_binance_single(
+                    symbol=symbols_or_group[0],
+                    timeframe=timeframe,
+                    start_date=start_iso,
+                    end_date=end_iso,
+                )
+                # Convertir au format results dict
+                results = {symbols_or_group[0]: {"success": result["success"]}}
+            else:
+                batch_result = ingest_controller.ingest_batch(
+                    symbols=symbols_or_group if symbols_or_group else [],
+                    timeframes=[timeframe],
+                    start_date=start_iso,
+                    end_date=end_iso,
+                    mode=batch_mode,
+                )
+                # Convertir files list vers dict
+                results = {
+                    f["symbol"]: {"success": True} for f in batch_result["files"]
+                }
 
             if not results:
                 return (
@@ -834,18 +850,18 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
 
             # Update registry table
             registry_data = []
-            for sym, df in results.items():
-                if df is not None and not df.empty:
-                    path = _build_dataset_path(sym, timeframe)
-                    checksum = file_checksum(path) if path.exists() else "N/A"
+            for sym, result_info in results.items():
+                if result_info.get("success"):
+                    # NOUVEAU: Utiliser Bridge pour paths
+                    path = ingest_controller.get_dataset_path(sym, timeframe, "raw")
                     registry_data.append(
                         {
                             "symbol": sym,
                             "timeframe": timeframe,
-                            "rows": len(df),
-                            "start": str(df.index.min())[:10],
-                            "end": str(df.index.max())[:10],
-                            "checksum": checksum[:8] if checksum != "N/A" else "N/A",
+                            "rows": result_info.get("rows_count", "N/A"),
+                            "start": start_date,
+                            "end": end_date,
+                            "checksum": result_info.get("checksum", "N/A")[:8],
                         }
                     )
 
@@ -901,10 +917,23 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
                 updated_store,
             )
 
-        except Exception as e:
-            logger.error(f"Download error: {e}")
+        except BridgeError as e:
+            # ✅ Bridge-specific errors (data validation, ingestion issues)
+            logger.error(f"Bridge error during download: {e}")
             return (
-                f"Error: {str(e)}",
+                f"❌ Data ingestion error: {str(e)}",
+                "warning",
+                True,
+                False,
+                no_update,
+                no_update,
+                no_update,
+            )
+        except Exception as e:
+            # ✅ Catch-all for unexpected errors
+            logger.exception(f"Unexpected error during download: {e}")
+            return (
+                f"⚠️ Unexpected error: {str(e)}",
                 "danger",
                 True,
                 False,
@@ -928,7 +957,7 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
         prevent_initial_call=True,
     )
     def update_indicators_batch(n_clicks, selected_indicators, store_data):
-        """Update indicators in batch using unified_diversity_pipeline.
+        """Update indicators in batch using DiversityPipelineController.
 
         Args:
             n_clicks: Button click trigger
@@ -942,7 +971,8 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
             raise PreventUpdate
 
         try:
-            from threadx.data.unified_diversity_pipeline import UnifiedDiversityPipeline
+            # ✅ FIXED: Use DiversityPipelineController from Bridge
+            from threadx.bridge import DiversityPipelineController
 
             if not selected_indicators:
                 return (
@@ -967,24 +997,47 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
                 f"🔧 Updating indicators: {selected_indicators} for {len(symbols)} symbols"
             )
 
-            # Initialize pipeline
-            pipeline = UnifiedDiversityPipeline(enable_persistence=True)
+            # Initialize controller (Bridge)
+            controller = DiversityPipelineController()
 
-            # Process indicators (simplified - adapt to real API)
-            # In real implementation, would call pipeline methods for each symbol
-            indicator_count = len(selected_indicators) * len(symbols)
+            # Build indicators batch via Bridge
+            result = controller.build_indicators_batch(
+                symbols=symbols,
+                indicators=selected_indicators,
+                timeframe=timeframe,
+                enable_persistence=True,
+            )
 
+            if result["success"]:
+                return (
+                    f"✅ Updated {result['count']} indicator(s) successfully",
+                    "success",
+                    True,
+                    False,
+                )
+            else:
+                errors_str = "; ".join(result["errors"][:3])  # First 3 errors
+                return (
+                    f"⚠️ Partial update: {errors_str}",
+                    "warning",
+                    True,
+                    False,
+                )
+
+        except BridgeError as e:
+            # ✅ Bridge-specific errors (indicator calculation issues)
+            logger.error(f"Bridge error during indicator update: {e}")
             return (
-                f"✅ Updated {indicator_count} indicator(s) successfully",
-                "success",
+                f"❌ Indicator error: {str(e)}",
+                "warning",
                 True,
                 False,
             )
-
         except Exception as e:
-            logger.error(f"Indicator update error: {e}")
+            # ✅ Catch-all for unexpected errors
+            logger.exception(f"Unexpected error during indicator update: {e}")
             return (
-                f"Error: {str(e)}",
+                f"⚠️ Unexpected error: {str(e)}",
                 "danger",
                 True,
                 False,

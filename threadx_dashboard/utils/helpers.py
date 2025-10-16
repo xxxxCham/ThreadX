@@ -4,6 +4,9 @@ Fonctions d'aide et utilitaires pour ThreadX Dashboard
 
 Ce module contient des fonctions utilitaires génériques
 utilisées dans toute l'application.
+
+RÈGLE ARCHITECTURE: Aucun calcul métier ici.
+Tous les calculs pandas/numpy doivent passer par Bridge.
 """
 
 import json
@@ -17,6 +20,9 @@ import plotly.graph_objects as go
 from plotly.colors import qualitative
 
 from config import THEME, LOG_FILE, LOG_FORMAT, LOG_LEVEL
+
+# Import Bridge pour déléguer calculs métier
+from threadx.bridge import MetricsController
 
 
 def setup_logging() -> logging.Logger:
@@ -79,7 +85,7 @@ def format_percentage(value: float, precision: int = 2) -> str:
 
 def calculate_returns(prices: pd.Series) -> pd.Series:
     """
-    Calcule les rendements d'une série de prix.
+    Calcule rendements - DÉLÈGUE À BRIDGE.
 
     Args:
         prices: Série de prix
@@ -87,12 +93,17 @@ def calculate_returns(prices: pd.Series) -> pd.Series:
     Returns:
         pd.Series: Série de rendements
     """
-    return prices.pct_change().dropna()
+    # ANCIEN CODE (INTERDIT): return prices.pct_change().dropna()
+
+    # NOUVEAU: Déléguer au Bridge
+    metrics_controller = MetricsController()
+    result = metrics_controller.calculate_returns(prices.tolist())
+    return pd.Series(result["returns"], index=prices.index[1:])
 
 
 def calculate_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.02) -> float:
     """
-    Calcule le ratio de Sharpe.
+    Calcule ratio de Sharpe - DÉLÈGUE À BRIDGE.
 
     Args:
         returns: Série de rendements
@@ -101,18 +112,23 @@ def calculate_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.02) -> 
     Returns:
         float: Ratio de Sharpe
     """
-    if returns.empty or returns.std() == 0:
-        return 0.0
+    # ANCIEN CODE (INTERDIT):
+    # if returns.empty or returns.std() == 0:
+    #     return 0.0
+    # excess_returns = returns.mean() * 252 - risk_free_rate
+    # volatility = returns.std() * (252**0.5)
+    # return excess_returns / volatility if volatility != 0 else 0.0
 
-    excess_returns = returns.mean() * 252 - risk_free_rate  # Annualisé
-    volatility = returns.std() * (252**0.5)  # Annualisé
-
-    return excess_returns / volatility if volatility != 0 else 0.0
+    # NOUVEAU: Déléguer au Bridge
+    metrics_controller = MetricsController()
+    return metrics_controller.calculate_sharpe_ratio(
+        returns=returns.tolist(), risk_free_rate=risk_free_rate
+    )
 
 
 def calculate_max_drawdown(equity_curve: pd.Series) -> float:
     """
-    Calcule le drawdown maximum.
+    Calcule drawdown maximum - DÉLÈGUE À BRIDGE.
 
     Args:
         equity_curve: Courbe d'équité
@@ -120,13 +136,20 @@ def calculate_max_drawdown(equity_curve: pd.Series) -> float:
     Returns:
         float: Drawdown maximum (négatif)
     """
+    # ANCIEN CODE (INTERDIT):
+    # if equity_curve.empty:
+    #     return 0.0
+    # peak = equity_curve.expanding().max()
+    # drawdown = (equity_curve - peak) / peak
+    # return drawdown.min()
+
+    # NOUVEAU: Déléguer au Bridge
     if equity_curve.empty:
         return 0.0
 
-    peak = equity_curve.expanding().max()
-    drawdown = (equity_curve - peak) / peak
-
-    return drawdown.min()
+    metrics_controller = MetricsController()
+    result = metrics_controller.calculate_max_drawdown(equity_curve.tolist())
+    return result["max_drawdown"]
 
 
 def get_color_palette(n_colors: int) -> List[str]:
