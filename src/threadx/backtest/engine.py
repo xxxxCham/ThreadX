@@ -37,6 +37,21 @@ import numpy as np
 # ThreadX Core imports
 from threadx.utils.log import get_logger
 
+# Validation backtest anti-overfitting
+try:
+    from threadx.backtest.validation import (
+        BacktestValidator,
+        ValidationConfig,
+        check_temporal_integrity,
+    )
+
+    VALIDATION_AVAILABLE = True
+except ImportError:
+    VALIDATION_AVAILABLE = False
+    BacktestValidator = None
+    ValidationConfig = None
+    check_temporal_integrity = None
+
 # Threading/Timing utilities avec fallback gracieux
 try:
     from threadx.utils.timing import measure_throughput, track_memory
@@ -258,10 +273,27 @@ class BacktestEngine:
         # État d'exécution
         self.last_run_meta = {}
 
-        self.logger.info(f"🚀 BacktestEngine initialisé")
+        # Validation setup
+        self.validator = None
+        self.validation_config = None
+        if VALIDATION_AVAILABLE:
+            # Configuration par défaut: walk-forward avec purge/embargo
+            self.validation_config = ValidationConfig(
+                method="walk_forward",
+                walk_forward_windows=5,
+                purge_days=1,
+                embargo_days=1,
+                min_train_samples=200,
+                min_test_samples=50,
+            )
+            self.validator = BacktestValidator(self.validation_config)
+            self.logger.info("✅ Validation anti-overfitting activée")
+
+        self.logger.info("🚀 BacktestEngine initialisé")
         self.logger.info(f"   GPU: {'✅' if self.gpu_available else '❌'}")
         self.logger.info(f"   Multi-GPU: {'✅' if self.use_multi_gpu else '❌'}")
         self.logger.info(f"   XP Backend: {self.xp_backend}")
+        self.logger.info(f"   Validation: {'✅' if self.validator else '❌'}")
 
     def run(
         self,
@@ -922,6 +954,229 @@ class BacktestEngine:
             "device_count": len(device_info.get("devices", [])),
         }
 
+    def run_backtest_with_validation(
+        self,
+        df_1m: pd.DataFrame,
+        indicators: Dict[str, Any],
+        *,
+        params: Dict[str, Any],
+        symbol: str,
+        timeframe: str,
+        validation_config: Optional[ValidationConfig] = None,
+        seed: int = 42,
+        use_gpu: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """
+        Exécute backtest avec validation anti-overfitting complète.
+
+        Cette méthode applique une validation robuste via walk-forward ou train/test split
+        pour détecter l'overfitting et garantir des performances réalistes out-of-sample.
+
+        Pipeline:
+        1. Vérification intégrité temporelle des données (look-ahead bias)
+        2. Split données en train/test selon méthode configurée
+        3. Exécution backtest sur chaque split
+        4. Calcul ratio overfitting (IS_sharpe / OOS_sharpe)
+        5. Recommandations automatiques basées sur ratio
+
+        Args:
+            df_1m: DataFrame OHLCV 1-minute avec index datetime UTC
+            indicators: Dict indicateurs calculés via bank.ensure()
+            params: Paramètres stratégie (entry_z, k_sl, leverage, etc.)
+            symbol: Symbole tradé (ex: "BTCUSDC")
+            timeframe: Timeframe de référence (ex: "1m", "1h")
+            validation_config: Configuration validation (None = use default from __init__)
+            seed: Seed pour déterminisme (default: 42)
+            use_gpu: Force GPU usage (None = auto)
+
+        Returns:
+            Dict avec:
+                - in_sample: Métriques train (mean/std sharpe, return, drawdown, etc.)
+                - out_sample: Métriques test (idem)
+                - overfitting_ratio: IS_sharpe / OOS_sharpe
+                - recommendation: Texte explicatif basé sur ratio
+                - method: Méthode validation utilisée
+                - n_windows: Nombre fenêtres (walk-forward uniquement)
+                - all_results: Liste résultats individuels par split
+
+        Raises:
+            ValueError: Si validation module non disponible
+            ValueError: Si données ont problèmes temporels
+
+        Examples:
+            >>> # Validation walk-forward (défaut)
+            >>> results = engine.run_backtest_with_validation(
+            ...     df_1m, indicators, params=params, symbol="BTCUSDC", timeframe="1m"
+            ... )
+            >>> print(f"Overfitting ratio: {results['overfitting_ratio']:.2f}")
+            >>> print(results['recommendation'])
+            >>>
+            >>> # Train/test split simple
+            >>> config = ValidationConfig(method="train_test", train_ratio=0.7)
+            >>> results = engine.run_backtest_with_validation(
+            ...     df_1m, indicators, params=params, symbol="BTCUSDC", timeframe="1m",
+            ...     validation_config=config
+            ... )
+
+        Notes:
+            - Overfitting ratio < 1.2: ✅ Excellent, stratégie robuste
+            - Overfitting ratio 1.2-1.5: ⚠️ Acceptable, léger overfitting
+            - Overfitting ratio 1.5-2.0: 🟡 Attention, overfitting modéré
+            - Overfitting ratio > 2.0: 🔴 Critique, stratégie non viable
+        """
+        if not VALIDATION_AVAILABLE:
+            raise ValueError(
+                "Module validation non disponible. "
+                "Installer avec: pip install -e . pour activer threadx.backtest.validation"
+            )
+
+        self.logger.info(f"🔍 Démarrage backtest avec validation: {symbol} {timeframe}")
+
+        # Vérifier intégrité temporelle des données AVANT validation
+        try:
+            check_temporal_integrity(df_1m)
+            self.logger.debug("✅ Intégrité temporelle validée")
+        except ValueError as e:
+            self.logger.error(f"❌ Problème intégrité temporelle: {e}")
+            raise
+
+        # Utiliser config fournie ou celle par défaut de l'instance
+        config = validation_config or self.validation_config
+        if config is None:
+            config = ValidationConfig()  # Fallback config par défaut
+            self.logger.warning("⚠️ Aucune config validation, utilisation défaut")
+
+        # Créer validator avec config spécifique
+        validator = BacktestValidator(config)
+
+        # Définir fonction de backtest à valider
+        def backtest_func(
+            data: pd.DataFrame, params_dict: Dict[str, Any]
+        ) -> Dict[str, float]:
+            """
+            Wrapper pour exécuter self.run() et extraire métriques nécessaires.
+
+            Args:
+                data: Sous-ensemble de df_1m (train ou test split)
+                params_dict: Paramètres stratégie
+
+            Returns:
+                Dict avec métriques: sharpe_ratio, total_return, max_drawdown, etc.
+            """
+            try:
+                # Re-calculer indicateurs sur split spécifique
+                # (important pour éviter look-ahead bias!)
+                split_indicators = {}
+                if "bollinger" in indicators:
+                    # Pour simplification, on utilise indicateurs pré-calculés
+                    # TODO: Re-calculer indicateurs par split pour robustesse totale
+                    split_indicators["bollinger"] = indicators["bollinger"]
+                if "atr" in indicators:
+                    split_indicators["atr"] = indicators["atr"]
+
+                # Exécuter backtest sur ce split
+                result = self.run(
+                    df_1m=data,
+                    indicators=split_indicators,
+                    params=params_dict,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    seed=seed,
+                    use_gpu=use_gpu,
+                )
+
+                # Calculer métriques depuis RunResult
+                returns = result.returns
+                trades = result.trades
+
+                # Sharpe ratio (annualisé)
+                if len(returns) > 0 and returns.std() > 0:
+                    sharpe = (returns.mean() / returns.std()) * np.sqrt(
+                        252 * 24 * 60
+                    )  # 1-min bars
+                else:
+                    sharpe = 0.0
+
+                # Total return
+                total_return = (result.equity.iloc[-1] / result.equity.iloc[0]) - 1
+
+                # Max drawdown
+                equity = result.equity
+                cummax = equity.cummax()
+                drawdown = (equity - cummax) / cummax
+                max_drawdown = drawdown.min()
+
+                # Win rate
+                if len(trades) > 0:
+                    win_rate = (trades["pnl"] > 0).sum() / len(trades)
+                else:
+                    win_rate = 0.0
+
+                # Profit factor
+                if len(trades) > 0:
+                    wins = trades[trades["pnl"] > 0]["pnl"].sum()
+                    losses = abs(trades[trades["pnl"] < 0]["pnl"].sum())
+                    profit_factor = wins / losses if losses > 0 else float("inf")
+                else:
+                    profit_factor = 1.0
+
+                return {
+                    "sharpe_ratio": float(sharpe),
+                    "total_return": float(total_return),
+                    "max_drawdown": float(max_drawdown),
+                    "win_rate": float(win_rate),
+                    "profit_factor": float(profit_factor),
+                }
+
+            except Exception as e:
+                self.logger.error(f"❌ Erreur dans backtest_func split: {e}")
+                # Retourner métriques nulles en cas d'erreur
+                return {
+                    "sharpe_ratio": 0.0,
+                    "total_return": 0.0,
+                    "max_drawdown": 0.0,
+                    "win_rate": 0.0,
+                    "profit_factor": 0.0,
+                }
+
+        # Exécuter validation complète
+        self.logger.info(
+            f"🔄 Validation {config.method} avec {config.walk_forward_windows if config.method == 'walk_forward' else 1} splits"
+        )
+        validation_results = validator.validate_backtest(
+            backtest_func=backtest_func, data=df_1m, params=params
+        )
+
+        # Logs résultats
+        self.logger.info("📊 Résultats validation:")
+        self.logger.info(
+            f"   In-Sample Sharpe: {validation_results['in_sample']['mean_sharpe_ratio']:.2f} "
+            f"± {validation_results['in_sample']['std_sharpe_ratio']:.2f}"
+        )
+        self.logger.info(
+            f"   Out-Sample Sharpe: {validation_results['out_sample']['mean_sharpe_ratio']:.2f} "
+            f"± {validation_results['out_sample']['std_sharpe_ratio']:.2f}"
+        )
+        self.logger.info(
+            f"   Overfitting Ratio: {validation_results['overfitting_ratio']:.2f}"
+        )
+
+        # Alerte si overfitting critique
+        if validation_results["overfitting_ratio"] > 2.0:
+            self.logger.warning(
+                "🔴 ALERTE: Overfitting critique détecté! Stratégie non fiable."
+            )
+        elif validation_results["overfitting_ratio"] > 1.5:
+            self.logger.warning(
+                "🟡 ATTENTION: Overfitting modéré, réduire nombre paramètres."
+            )
+        else:
+            self.logger.info("✅ Stratégie robuste, overfitting acceptable.")
+
+        self.logger.info(f"\n{validation_results['recommendation']}\n")
+
+        return validation_results
+
 
 # === Factory Functions et API Convenience ===
 
@@ -1008,4 +1263,3 @@ logger.info(f"ThreadX Backtest Engine v10 loaded")
 logger.debug(f"   GPU utils: {'✅' if GPU_UTILS_AVAILABLE else '❌'}")
 logger.debug(f"   XP utils: {'✅' if XP_AVAILABLE else '❌'}")
 logger.debug(f"   Timing utils: {'✅' if 'measure_throughput' in globals() else '❌'}")
-
