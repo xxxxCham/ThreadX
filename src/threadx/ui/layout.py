@@ -6,7 +6,8 @@ Layout statique Dash pour ThreadX Dashboard.
 Architecture 4 onglets modulaire avec composants P5-P6 intégrés.
 
 Onglets:
-    1. Data Manager - Upload/Validation données
+    1. Data Creation & Management - Téléchargement Binance, validation UDFI,
+       registry, mise à jour indicateurs batch
     2. Indicators - Build cache indicateurs techniques
     3. Backtest - Exécution stratégies + résultats
     4. Optimization - Parameter sweeps + heatmaps
@@ -21,7 +22,7 @@ Usage:
     app.layout = create_layout(bridge)
 
 Author: ThreadX Framework
-Version: Prompt 4 + P8 - Layout Principal avec Composants Intégrés
+Version: Prompt 10 - Data Creation & Management + Layout Principal
 """
 
 import dash_bootstrap_components as dbc
@@ -126,26 +127,17 @@ def create_layout(bridge=None):
                         className="bg-dark",
                         children=[
                             # ─────────────────────────────────────
-                            # TAB 1: Data Manager
+                            # TAB 1: Data Creation & Management
                             # ─────────────────────────────────────
                             dcc.Tab(
-                                label="Data Manager",
+                                label="Data Creation & Management",
                                 value="tab-data",
                                 className="bg-dark text-light",
                                 selected_className="bg-primary",
                                 children=[
                                     html.Div(
-                                        className="p-4",
+                                        className="p-0",
                                         children=[
-                                            html.H3(
-                                                "Data Management",
-                                                className="text-light mb-1",
-                                            ),
-                                            html.P(
-                                                "Upload, validate, and manage "
-                                                "market data sources",
-                                                className="text-muted mb-4",
-                                            ),
                                             create_data_manager_panel(),
                                         ],
                                     )

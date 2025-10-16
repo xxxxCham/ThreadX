@@ -94,7 +94,7 @@ class BacktestController:
         """
         # Validation requête
         if self.config.validate_requests and not request.validate():
-            raise BacktestError("Invalid BacktestRequest: missing required fields")
+            raise BacktestError("Invalid BacktestRequest: missing required fiel            print(f"[Bridge] validate_data appelé avec: symbol={request.symbol}, timeframe={request.timeframe}, path={request.data_path}")ds")
 
         start_time = time.perf_counter()
 

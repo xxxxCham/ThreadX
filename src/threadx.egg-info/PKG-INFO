@@ -1,3 +1,34 @@
 Metadata-Version: 2.4
-Name: threadx
-Version: 0.0.0
+Name: ThreadX
+Version: 0.5.0
+Summary: Framework modulaire de backtesting pour stratégies de trading quantitatif
+Author-email: ThreadX Team <contact@threadx.dev>
+License: MIT
+Project-URL: Homepage, https://github.com/threadx/threadx
+Project-URL: Documentation, https://github.com/threadx/threadx/tree/main/docs
+Project-URL: Repository, https://github.com/threadx/threadx
+Project-URL: Changelog, https://github.com/threadx/threadx/blob/main/CHANGELOG.md
+Keywords: backtesting,trading,quantitative,finance,crypto,indicators
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Office/Business :: Financial :: Investment
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: dash>=2.14.0
+Requires-Dist: dash-bootstrap-components>=1.5.0
+Requires-Dist: plotly>=5.17.0
+Requires-Dist: typer>=0.9.0
+Requires-Dist: rich>=13.7.0
+Requires-Dist: pydantic>=2.5.0
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: pandas>=2.1.0
+Requires-Dist: pyarrow>=14.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.7.0; extra == "dev"

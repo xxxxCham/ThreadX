@@ -648,3 +648,231 @@ def update_assets_batch(
     """API publique: mise à jour batch."""
     manager = IngestionManager()
     return manager.update_assets_batch(symbols, timeframes, start, end, **kwargs)
+
+
+# ============================================================================
+# API BINANCE (DATA CREATION & MANAGEMENT UI)
+# ============================================================================
+
+
+def ingest_binance(
+    symbol: str,
+    interval: str,
+    start_iso: str,
+    end_iso: str,
+    *,
+    validate_udfi: bool = True,
+    save_to_registry: bool = True,
+) -> pd.DataFrame:
+    """
+    Télécharge et ingère données OHLCV depuis Binance (single symbol).
+
+    Pipeline complet:
+    1. Fetch depuis Binance API via legacy_adapter
+    2. Normalisation timezone UTC + colonnes UDFI
+    3. Validation stricte UDFI (si activée)
+    4. Resample si interval != 1m
+    5. Sauvegarde Parquet + update registry (si activé)
+
+    Args:
+        symbol: Symbole Binance (ex: "BTCUSDC")
+        interval: Timeframe (1m, 5m, 15m, 1h, 4h, 1d)
+        start_iso: Date début ISO 8601 (ex: "2024-01-01T00:00:00Z")
+        end_iso: Date fin ISO 8601
+        validate_udfi: Activer validation UDFI stricte
+        save_to_registry: Sauvegarder Parquet + checksum registry
+
+    Returns:
+        DataFrame OHLCV normalisé (index UTC, colonnes UDFI float64)
+
+    Raises:
+        IngestionError: Échec téléchargement/validation/sauvegarde
+
+    Example:
+        >>> df = ingest_binance(
+        ...     "BTCUSDC",
+        ...     "1h",
+        ...     "2024-01-01T00:00:00Z",
+        ...     "2024-01-07T23:59:59Z"
+        ... )
+        >>> assert all(c in df.columns for c in ['open','high','low','close','volume'])
+    """
+    manager = IngestionManager()
+
+    # Parse dates ISO
+    start_dt = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+    end_dt = datetime.fromisoformat(end_iso.replace("Z", "+00:00"))
+
+    logger.info(f"🔽 Ingestion Binance: {symbol} {interval} ({start_iso} → {end_iso})")
+
+    # Téléchargement 1m truth
+    df_1m = manager.download_ohlcv_1m(symbol, start_dt, end_dt)
+
+    if df_1m.empty:
+        raise IngestionError(f"No data downloaded for {symbol}")
+
+    # Resample si nécessaire
+    if interval != "1m":
+        df_final = manager.resample_from_1m(df_1m, interval)
+    else:
+        df_final = df_1m.copy()
+
+    # Validation UDFI
+    if validate_udfi:
+        try:
+            from .udfi_contract import assert_udfi
+
+            assert_udfi(df_final, strict=True)
+            logger.info(f"✅ UDFI validation passed ({len(df_final)} rows)")
+        except Exception as e:
+            raise IngestionError(f"UDFI validation failed: {e}")
+
+    # Sauvegarde + registry
+    if save_to_registry:
+        try:
+            parquet_path = manager.processed_path / symbol / f"{interval}.parquet"
+            parquet_path.parent.mkdir(parents=True, exist_ok=True)
+
+            write_frame(df_final, parquet_path)
+            checksum = file_checksum(parquet_path)
+
+            logger.info(f"💾 Saved: {parquet_path} (checksum: {checksum[:8]}...)")
+        except Exception as e:
+            logger.warning(f"Registry save failed: {e}")
+
+    return df_final
+
+
+def ingest_batch(
+    mode: Literal["top", "group", "single"],
+    symbols_or_group: Union[List[str], str],
+    interval: str,
+    start_iso: str,
+    end_iso: str,
+    *,
+    max_workers: int = 4,
+    validate_udfi: bool = True,
+    save_to_registry: bool = True,
+) -> Dict[str, pd.DataFrame]:
+    """
+    Ingestion batch depuis Binance (top 100 / group / liste custom).
+
+    Modes:
+    - "top": Top 100 tokens par market cap + volume (via TokenManager)
+    - "group": Groupe prédéfini (L1, DeFi, L2, Stable via create_default_config)
+    - "single": Liste custom de symboles
+
+    Args:
+        mode: Mode d'ingestion ("top" | "group" | "single")
+        symbols_or_group:
+            - mode="top": ignored (récupère auto top 100)
+            - mode="group": nom du groupe ("L1", "DeFi", "L2", "Stable")
+            - mode="single": liste de symboles ["BTCUSDC", "ETHUSDC", ...]
+        interval: Timeframe (1m, 5m, 15m, 1h, 4h, 1d)
+        start_iso: Date début ISO 8601
+        end_iso: Date fin ISO 8601
+        max_workers: Parallélisme ThreadPool
+        validate_udfi: Validation UDFI stricte
+        save_to_registry: Sauvegarde Parquet + registry
+
+    Returns:
+        Dict[symbol, DataFrame] avec résultats (échecs exclus)
+
+    Raises:
+        ValueError: Mode invalide ou groupe inconnu
+
+    Example:
+        >>> # Top 100
+        >>> results = ingest_batch(
+        ...     "top", None, "1h",
+        ...     "2024-01-01T00:00:00Z",
+        ...     "2024-01-07T23:59:59Z"
+        ... )
+        >>>
+        >>> # Groupe L1
+        >>> results = ingest_batch(
+        ...     "group", "L1", "4h",
+        ...     "2024-01-01T00:00:00Z",
+        ...     "2024-01-07T23:59:59Z"
+        ... )
+        >>>
+        >>> # Custom liste
+        >>> results = ingest_batch(
+        ...     "single", ["BTCUSDC", "ETHUSDC"], "1h",
+        ...     "2024-01-01T00:00:00Z",
+        ...     "2024-01-07T23:59:59Z"
+        ... )
+    """
+    from .tokens import TokenManager, create_default_config
+
+    # Détermination symboles selon mode
+    if mode == "top":
+        logger.info("📊 Mode: Top 100 tokens (market cap + volume)")
+        token_manager = TokenManager()
+        symbols = token_manager.get_top_tokens(limit=100, usdc_only=True)
+
+    elif mode == "group":
+        logger.info(f"🏷️  Mode: Group '{symbols_or_group}'")
+        config = create_default_config()
+
+        if symbols_or_group not in config.groups:
+            available = list(config.groups.keys())
+            raise ValueError(
+                f"Unknown group '{symbols_or_group}'. Available: {available}"
+            )
+
+        symbols = config.groups[symbols_or_group]
+
+    elif mode == "single":
+        logger.info(f"📝 Mode: Custom list ({len(symbols_or_group)} symbols)")
+        symbols = (
+            symbols_or_group
+            if isinstance(symbols_or_group, list)
+            else [symbols_or_group]
+        )
+
+    else:
+        raise ValueError(f"Invalid mode '{mode}'. Must be: 'top' | 'group' | 'single'")
+
+    logger.info(f"🎯 Batch ingestion: {len(symbols)} symbols × {interval}")
+
+    # Parallélisation
+    results = {}
+    errors = {}
+
+    def process_symbol(sym: str) -> Tuple[str, Optional[pd.DataFrame], Optional[str]]:
+        try:
+            df = ingest_binance(
+                sym,
+                interval,
+                start_iso,
+                end_iso,
+                validate_udfi=validate_udfi,
+                save_to_registry=save_to_registry,
+            )
+            return (sym, df, None)
+        except Exception as e:
+            logger.error(f"❌ {sym}: {e}")
+            return (sym, None, str(e))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(process_symbol, sym): sym for sym in symbols}
+
+        for future in as_completed(futures):
+            symbol, df, error = future.result()
+
+            if error is None and df is not None:
+                results[symbol] = df
+                logger.info(f"✅ {symbol}: {len(df)} rows")
+            else:
+                errors[symbol] = error
+
+    success_rate = len(results) / len(symbols) * 100 if symbols else 0
+    logger.info(
+        f"🏁 Batch complete: {len(results)}/{len(symbols)} succeeded ({success_rate:.1f}%)"
+    )
+
+    if errors:
+        logger.warning(f"⚠️  {len(errors)} failures: {list(errors.keys())[:5]}...")
+
+    return results

@@ -105,4 +105,4 @@ if __name__ == "__main__":
     print("=" * 60)
     print("\nPress Ctrl+C to stop\n")
 
-    app.run_server(debug=DEBUG, port=PORT, host="127.0.0.1")
+    app.run(debug=DEBUG, port=PORT, host="127.0.0.1")
