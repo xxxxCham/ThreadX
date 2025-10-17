@@ -870,9 +870,9 @@ class DataIngestionController:
 
             result = ingest_binance(
                 symbol=symbol,
-                timeframe=timeframe,
-                start_date=start_date,
-                end_date=end_date,
+                interval=timeframe,  # Corrigé: interval au lieu de timeframe
+                start_iso=start_date,
+                end_iso=end_date,
             )
 
             return {

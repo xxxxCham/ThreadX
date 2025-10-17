@@ -30,12 +30,19 @@ Version: Phase 10 - Production Engine
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, Tuple, List, Union
-import pandas as pd
-import numpy as np
 
-# ThreadX Core imports
-from threadx.utils.log import get_logger
+# ThreadX Common Imports (DRY refactoring)
+from threadx.utils.common_imports import (
+    pd,
+    np,
+    Dict,
+    Any,
+    Optional,
+    Tuple,
+    List,
+    Union,
+    create_logger,
+)
 
 # Validation backtest anti-overfitting
 try:
@@ -111,7 +118,7 @@ except ImportError:
     MultiGPUManager = None
     get_default_manager = lambda: None
 
-logger = get_logger(__name__)
+logger = create_logger(__name__)
 
 
 @dataclass
@@ -237,7 +244,7 @@ class BacktestEngine:
                         Si None, utilise balance par défaut du MultiGPUManager
             use_multi_gpu: Active la distribution multi-GPU si plusieurs devices
         """
-        self.logger = get_logger(__name__)
+        self.logger = create_logger(__name__)
 
         # Device detection et setup
         self.gpu_available = gpu_available() if GPU_UTILS_AVAILABLE else False
@@ -492,7 +499,7 @@ class BacktestEngine:
 
         self.logger.debug("✅ Validation inputs réussie")
 
-    @measure_throughput("signal_generation", unit="signal")
+    @measure_throughput("signal_generation")
     def _generate_trading_signals(
         self, df_1m: pd.DataFrame, indicators: Dict[str, Any], params: Dict[str, Any]
     ) -> pd.Series:

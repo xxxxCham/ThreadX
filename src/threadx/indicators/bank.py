@@ -123,6 +123,15 @@ class CacheManager:
         self.settings = settings
         self.cache_path = Path(settings.cache_dir)
 
+    def _read_metadata(self, meta_file: Path) -> Optional[Dict]:
+        """Helper: Lit metadata JSON (élimine duplication)"""
+        try:
+            with open(meta_file, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to read metadata {meta_file}: {e}")
+            return None
+
     def _generate_cache_key(
         self,
         indicator_type: str,
@@ -187,8 +196,9 @@ class CacheManager:
 
         try:
             # Lecture métadonnées
-            with open(meta_file, "r") as f:
-                metadata = json.load(f)
+            metadata = self._read_metadata(meta_file)
+            if not metadata:
+                return False
 
             # Vérification TTL
             created_at = metadata.get("created_at", 0)
@@ -329,8 +339,9 @@ class CacheManager:
 
             for meta_file in indicator_dir.glob("*.meta"):
                 try:
-                    with open(meta_file, "r") as f:
-                        metadata = json.load(f)
+                    metadata = self._read_metadata(meta_file)
+                    if not metadata:
+                        continue
 
                     created_at = metadata.get("created_at", 0)
                     if time.time() - created_at > self.settings.ttl_seconds:
@@ -1319,8 +1330,11 @@ def validate_bank_integrity(cache_dir: str = "indicators_cache") -> Dict[str, An
                     results["invalid_cache"] += 1
 
                     # Détail de l'invalidité
-                    with open(meta_file, "r") as f:
-                        metadata = json.load(f)
+                    metadata = cache_manager._read_metadata(meta_file)
+                    if not metadata:
+                        type_stats["corrupted"] += 1
+                        results["corrupted_files"] += 1
+                        continue
 
                     created_at = metadata.get("created_at", 0)
                     if time.time() - created_at > settings.ttl_seconds:
@@ -1439,7 +1453,7 @@ def benchmark_bank_performance(
         "speedup_warm": cold_time / warm_time if warm_time > 0 else 0,
     }
 
-    logger.info(f"✅ Benchmark terminé:")
+    logger.info("✅ Benchmark terminé")
     logger.info(f"   Cold cache: {cold_time:.2f}s")
     logger.info(f"   Warm cache: {warm_time:.2f}s")
     logger.info(f"   Batch: {batch_time:.2f}s")

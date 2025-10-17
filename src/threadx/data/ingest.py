@@ -13,7 +13,7 @@ Architecture:
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Literal, Any
+from typing import Dict, List, Optional, Tuple, Literal, Any, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
@@ -137,7 +137,7 @@ class IngestionManager:
                 try:
                     raw_klines = self.adapter.fetch_klines_1m(symbol, dl_start, dl_end)
                     if raw_klines:
-                        segment_df = self.adapter.json_to_dataframe(raw_klines)
+                        segment_df = self.adapter.json_to_dataframe(raw_klines, symbol)
                         new_segments.append(segment_df)
                         self.session_stats["files_downloaded"] += 1
                 except APIError as e:
@@ -632,7 +632,7 @@ class IngestionManager:
                         raw_slow = self.adapter.fetch_klines_1m(
                             symbol, start, end, interval=slow_tf
                         )
-                        df_slow = self.adapter.json_to_dataframe(raw_slow)
+                        df_slow = self.adapter.json_to_dataframe(raw_slow, symbol)
 
                         if not df_slow.empty:
                             verify_report = self.verify_resample_consistency(

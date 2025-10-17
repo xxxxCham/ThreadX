@@ -29,6 +29,9 @@ Usage:
 
 from threadx.utils.log import get_logger
 
+# Import common imports module (Phase 2 DRY refactoring)
+from . import common_imports
+
 # Import Phase 9 utilities with graceful fallback
 try:
     # Core timing utilities
@@ -81,6 +84,7 @@ except ImportError as e:
 
 __all__ = [
     "get_logger",
+    "common_imports",  # Phase 2 DRY refactoring module
     # Phase 9 exports (if available)
     "Timer",
     "PerformanceMetrics",

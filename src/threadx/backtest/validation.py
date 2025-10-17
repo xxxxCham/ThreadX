@@ -19,12 +19,19 @@ Version: 1.0.0 - Anti-Overfitting Validation
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Tuple, Optional, Callable, Dict, Any
-import pandas as pd
-import numpy as np
-from threadx.utils.log import get_logger
+from threadx.utils.common_imports import (
+    pd,
+    np,
+    List,
+    Tuple,
+    Optional,
+    Callable,
+    Dict,
+    Any,
+    create_logger,
+)
 
-logger = get_logger(__name__)
+logger = create_logger(__name__)
 
 
 @dataclass
