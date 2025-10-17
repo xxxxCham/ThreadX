@@ -128,26 +128,15 @@ def test_opt_loading_exists(dash_app):
 
 
 def test_opt_panel_has_tabs(dash_app):
-    """Test that optimization panel uses tabs for results."""
-    from dash import dcc
+    """Test that optimization panel exposes result tabs."""
+    import dash_bootstrap_components as dbc
+
+    from tests.conftest import find_component_by_id
 
     layout = dash_app.layout
-
-    # Find dcc.Tabs in layout
-    def find_tabs(component):
-        tabs = []
-        if isinstance(component, dcc.Tabs):
-            tabs.append(component)
-        if hasattr(component, "children"):
-            children = component.children
-            if not isinstance(children, list):
-                children = [children]
-            for child in children:
-                tabs.extend(find_tabs(child))
-        return tabs
-
-    tabs = find_tabs(layout)
-    assert len(tabs) >= 1, "Layout should contain tabs (main + possibly opt tabs)"
+    tabs = find_component_by_id(layout, "opt-tabs")
+    assert tabs is not None, "opt-tabs should exist in layout"
+    assert isinstance(tabs, dbc.Tabs), "opt-tabs should be a dbc.Tabs component"
 
 
 def test_opt_panel_has_responsive_grid(dash_app):

@@ -688,7 +688,7 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
     @callback(
         Output("data-symbol-container", "style"),
         Output("data-group-container", "style"),
-        Input("data-source-mode", "value"),
+        Input("data-source", "value"),
         prevent_initial_call=False,
     )
     def toggle_source_inputs(mode):
@@ -719,8 +719,8 @@ def register_callbacks(app: dash.Dash, bridge: ThreadXBridge) -> None:
         ],
         Input("download-data-btn", "n_clicks"),
         [
-            State("data-source-mode", "value"),
-            State("data-symbol-input", "value"),
+            State("data-source", "value"),
+            State("data-symbol", "value"),
             State("data-group-select", "value"),
             State("data-timeframe", "value"),
             State("data-start-date", "date"),

@@ -23,8 +23,7 @@ import pytest
 
 # Chemins à auditer
 UI_PATHS = [
-    "threadx_dashboard",  # Dash UI
-    "apps/streamlit",  # Streamlit UI
+    "apps",  # Dash entry-point(s)
     "src/threadx/ui",  # UI components
 ]
 

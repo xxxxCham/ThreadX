@@ -13,8 +13,8 @@ Fonctionnalités:
 
 IDs Exposés (pour callbacks):
     Inputs:
-        - data-source-mode (Dropdown: single/top/group)
-        - data-symbol-input (Input: symbole pour mode single)
+        - data-source (Dropdown: single/top/group)
+        - data-symbol (Input: symbole pour mode single)
         - data-group-select (Dropdown: L1/DeFi/L2/Stable pour mode group)
         - data-timeframe (Dropdown: 1m/5m/15m/1h/4h/1d)
         - data-start-date (DatePickerSingle)
@@ -62,7 +62,7 @@ def create_data_manager_panel():
                     # === Mode Source ===
                     html.Label("Source Mode", className="text-light mb-2 fw-bold"),
                     dcc.Dropdown(
-                        id="data-source-mode",
+                        id="data-source",
                         options=[
                             {"label": "🎯 Single Symbol", "value": "single"},
                             {
@@ -82,7 +82,7 @@ def create_data_manager_panel():
                         children=[
                             html.Label("Symbol", className="text-light mb-2"),
                             dcc.Input(
-                                id="data-symbol-input",
+                                id="data-symbol",
                                 type="text",
                                 placeholder="e.g., BTCUSDC",
                                 value="BTCUSDC",
@@ -135,6 +135,25 @@ def create_data_manager_panel():
                         className="mb-3",
                         style={"color": "#000"},
                     ),
+                    # === Upload dataset (optionnel) ===
+                    html.Label("Upload Dataset", className="text-light mb-2 fw-bold"),
+                    dcc.Upload(
+                        id="data-upload",
+                        children=html.Div(
+                            [
+                                html.I(className="bi bi-upload me-2"),
+                                "Glissez un fichier CSV/Parquet ici ou cliquez pour sélectionner",
+                            ],
+                            className="text-center text-muted small",
+                        ),
+                        className="mb-3 bg-dark text-light border border-secondary rounded",
+                        style={
+                            "width": "100%",
+                            "padding": "18px",
+                            "borderStyle": "dashed",
+                            "cursor": "pointer",
+                        },
+                    ),
                     # === Plage Dates ===
                     html.Label("Date Range", className="text-light mb-2 fw-bold"),
                     html.Div(
@@ -181,6 +200,17 @@ def create_data_manager_panel():
                         ],
                         id="download-data-btn",
                         color="primary",
+                        className="w-100 mb-3",
+                        n_clicks=0,
+                    ),
+                    dbc.Button(
+                        [
+                            html.I(className="bi bi-clipboard-check me-2"),
+                            "Validate Registry Only",
+                        ],
+                        id="validate-data-btn",
+                        color="secondary",
+                        outline=True,
                         className="w-100 mb-3",
                         n_clicks=0,
                     ),

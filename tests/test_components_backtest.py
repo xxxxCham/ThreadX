@@ -138,30 +138,17 @@ def test_bt_loading_exists(dash_app):
     assert loading is not None, "bt-loading should exist"
 
 
-def test_bt_panel_has_tabs(dash_app):
-    """Test that backtest panel uses tabs for results."""
-    from dash import dcc
-
+def test_bt_panel_controls_exist(dash_app):
+    """Test that backtest configuration controls exist in layout."""
     from tests.conftest import find_component_by_id
 
     layout = dash_app.layout
 
-    # Find any dcc.Tabs in layout (backtest uses tabs)
-    def find_tabs(component):
-        tabs = []
-        if isinstance(component, dcc.Tabs):
-            tabs.append(component)
-        if hasattr(component, "children"):
-            children = component.children
-            if not isinstance(children, list):
-                children = [children]
-            for child in children:
-                tabs.extend(find_tabs(child))
-        return tabs
+    strategy_dropdown = find_component_by_id(layout, "bt-strategy")
+    assert strategy_dropdown is not None, "bt-strategy dropdown should exist"
 
-    tabs = find_tabs(layout)
-    # Should have at least main tabs + backtest tabs
-    assert len(tabs) >= 1, "Layout should contain tabs (main + possibly bt tabs)"
+    run_button = find_component_by_id(layout, "bt-run-btn")
+    assert run_button is not None, "bt-run-btn should exist"
 
 
 def test_bt_panel_has_responsive_grid(dash_app):
